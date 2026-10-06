@@ -1,0 +1,57 @@
+import { expect, test } from '@playwright/test';
+import { todayInTimeZone } from '@vetify/planner-shared/planner-date';
+
+test('a new owner creates a pet, previews/saves a plan and records intake and condition', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Demo Owner (free)' }).click();
+  await expect(page.getByText('No pets added yet')).toBeVisible();
+  await page.getByRole('button', { name: 'Add Pet', exact: true }).first().click();
+  await page.getByLabel(/Pet name/).fill('Milo');
+  await page.getByLabel(/Species/).fill('Dog');
+  await page.getByLabel(/Breed/).fill('Mixed breed');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Age', exact: true }).fill('3');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByLabel(/Current weight \(kg\)/).fill('12');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm and save' }).click();
+  await page.getByRole('button', { name: /Plan meals/i }).click();
+  await page.getByRole('button', { name: 'Schedule an existing amount' }).click();
+  await page.getByLabel('Date Milo was weighed').fill(todayInTimeZone('Asia/Manila'));
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Food and extras', exact: true })).toBeVisible();
+  await page.getByLabel(/Exact food name/).fill('Measured adult food');
+  await page.getByLabel(/Label calories, kcal/).fill('2500');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByLabel(/Existing daily food amount/).fill('100');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review and save', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save plan', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Save meal', exact: true }).first()).toBeVisible();
+  await page.getByRole('spinbutton', { name: 'Meal 1 amount eaten' }).fill('40');
+  await page.getByLabel('Treats or extras, kcal').first().fill('5');
+  await page.getByRole('button', { name: 'Save meal', exact: true }).first().click();
+  await expect(page.getByText(/40 g/).first()).toBeVisible();
+  await page.getByLabel('Weight, kg').fill('12.2');
+  await page.getByLabel('Condition, 1 to 9').selectOption('5');
+  await page.getByRole('button', { name: 'Record weight' }).click();
+  await expect(page.getByText(/12.2 kg/)).toBeVisible();
+  await page.getByRole('button', { name: 'Review plan', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByLabel(/Existing daily food amount/).fill('120');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Save plan', exact: true }).click();
+  await expect(page.getByText(/Plan version 2/)).toBeVisible();
+  await page.getByText('Previous plans', { exact: true }).click();
+  await expect(page.getByText(/Version 1/)).toBeVisible();
+  await page.getByRole('button', { name: /Week/ }).click();
+  await expect(page.getByText(/Measured adult food/).first()).toBeVisible();
+  await page.getByRole('button', { name: /Sign out|Log out/ }).click();
+  await page.getByRole('button', { name: 'Second Owner (pro)' }).click();
+  await expect(page.getByText('No pets added yet')).toBeVisible();
+  await expect(page.getByText('Milo', { exact: true })).toHaveCount(0);
+});
