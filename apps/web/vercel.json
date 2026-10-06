@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && npm run build:shared && npm run build:web",
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/api/v1/(.*)", "dest": "https://planner-api.example.invalid/api/v1/$1" },
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
