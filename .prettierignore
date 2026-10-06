@@ -1,0 +1,9 @@
+node_modules
+**/dist
+package-lock.json
+AGENT.MD
+AGENTS.md
+CLAUDE.md
+docs/original-migration-plan.md
+playwright-report
+test-results
