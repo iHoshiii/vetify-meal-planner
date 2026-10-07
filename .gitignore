@@ -13,3 +13,6 @@ test-results/
 Thumbs.db
 .vercel/
 .local-data/
+.expo/
+apps/mobile/android/
+apps/mobile/ios/

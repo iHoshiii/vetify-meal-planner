@@ -2,6 +2,7 @@
   "name": "vetify-meal-planner",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@11.18.0",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -13,12 +14,15 @@
   "scripts": {
     "predev": "npm run build:shared",
     "dev": "node scripts/dev.mjs",
+    "dev:web:stack": "node scripts/dev.mjs --web",
+    "dev:mobile": "npm run start --workspace @vetify/planner-mobile",
     "dev:web": "npm run dev --workspace @vetify/planner-web",
     "dev:api": "npm run dev --workspace @vetify/planner-api",
     "dev:mock-main": "tsx watch tools/mock-main/index.ts",
     "build:shared": "npm run build --workspace @vetify/planner-shared",
-    "build": "npm run build:shared && npm run build:web && npm run build:api && npm run build:tools",
+    "build": "npm run build:shared && npm run build:mobile && npm run build:web && npm run build:api && npm run build:tools",
     "build:web": "npm run build --workspace @vetify/planner-web",
+    "build:mobile": "npm run build --workspace @vetify/planner-mobile",
     "build:api": "npm run build --workspace @vetify/planner-api",
     "build:tools": "esbuild tools/mock-main/index.ts --bundle --platform=node --packages=external --format=esm --outfile=tools/mock-main/dist/index.js",
     "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present && tsc -p tsconfig.tools.json --noEmit",
@@ -47,8 +51,8 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^24.0.0",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "@types/supertest": "^7.2.1",
     "esbuild": "^0.25.0",
     "eslint": "^9.39.5",
@@ -56,8 +60,8 @@
     "jsdom": "^25.0.1",
     "mongodb-memory-server": "^11.2.0",
     "prettier": "^3.6.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "supertest": "^7.2.2",
     "tsx": "^4.23.11",
     "typescript": "^5",
@@ -68,6 +72,9 @@
   "overrides": {
     "react": "$react",
     "react-dom": "$react-dom",
-    "vite": "$vite"
+    "vite": "$vite",
+    "xcode": {
+      "uuid": "11.1.1"
+    }
   }
 }

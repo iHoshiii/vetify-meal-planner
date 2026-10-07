@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Vetify Meal Planner",
+    "slug": "vetify-meal-planner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "vetify-planner",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vetify.mealplanner"
+    },
+    "android": {
+      "package": "com.vetify.mealplanner"
+    },
+    "plugins": ["expo-secure-store", "expo-sharing"]
+  }
+}

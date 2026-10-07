@@ -4,6 +4,11 @@ export default defineProject({
   test: {
     name: 'node',
     environment: 'node',
-    include: ['scripts/**/*.test.ts', 'packages/shared/tests/**/*.test.ts', 'tools/**/*.test.ts'],
+    include: [
+      'scripts/**/*.test.ts',
+      'packages/shared/tests/**/*.test.ts',
+      'tools/**/*.test.ts',
+      'apps/mobile/src/**/*.test.ts',
+    ],
   },
 });
