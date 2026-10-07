@@ -29,6 +29,8 @@ npm.cmd run dev
 
 This starts the planner API, local mock account service and Expo development server. Default settings work without creating `.env`.
 
+The Expo project lives in `apps/mobile`, so direct CLI startup from the repository root is `npx.cmd expo start apps/mobile`.
+
 Install Expo Go on your Android phone or iPhone and connect the phone and computer to the same Wi-Fi network. Scan the terminal QR code using Expo Go on Android or the Camera app on iPhone. On iPhone, sign in to Expo Go and run `npx.cmd expo login` on the computer with the same Expo account. See [Expo's device startup instructions](https://docs.expo.dev/get-started/start-developing/).
 
 Choose a demo account in the native app. Each account owns separate planner data. Optional starter pets can be added with `npm.cmd run seed:demo`.
