@@ -1,6 +1,6 @@
 # vetify-meal-planner
 
-Standalone pet meal planner for Android and iOS using Expo and React Native, with an Express API and its own MongoDB database. A React browser client is also retained. Vetify main provides accounts, sessions and subscriptions. A local mock account service supports development while main integration is unfinished.
+Native pet meal planner for Android and iOS using Expo and React Native, with an Express API and its own MongoDB database. The browser client is for local development and tests. Production distributes a mobile app and hosts the backend API. Vetify main provides accounts, sessions and subscriptions. A local mock account service supports development while main integration is unfinished.
 
 ## Run locally
 
@@ -46,7 +46,7 @@ Replace the example address with your computer's address. `npm.cmd run dev:mobil
 
 For an Android emulator, install Android Studio, start an emulator and press `a` in the Expo terminal. The iOS simulator requires macOS and Xcode. An iPhone with Expo Go works with this Windows development setup.
 
-## Browser client
+## Local browser preview
 
 Run `npm.cmd run dev:web:stack` to start the browser client and its API/account services. Open **http://127.0.0.1:5174** and choose an account on the local demo login page.
 
@@ -75,7 +75,7 @@ Legacy pet condition scores and newer nine-point observations remain distinct. T
 
 ```text
 apps/mobile/    Expo and React Native Android/iOS app
-apps/web/       React, Vite and PWA browser client
+apps/web/       Local browser preview and automated tests
 apps/api/       Express API and planner Mongo repositories
 packages/shared/  Planner schemas, calculations and main API contract
 tools/mock-main/  Development account service
@@ -98,10 +98,10 @@ npm run test:e2e
 
 Browser checks need Chromium installed with `npx playwright install chromium`. API integration tests use disposable MongoDB databases. Built API startup is `npm run start:api`, after a build and with the database/account services available.
 
-`npm.cmd run build:mobile` exports and verifies the Android and iOS JavaScript bundles. APK/IPA installation packages require a native build. Follow [Expo's development build instructions](https://docs.expo.dev/develop/development-builds/introduction/) when preparing device builds.
+`npm.cmd run build` builds shared code, native JavaScript bundles and the API. `npm.cmd run build:mobile` verifies Android and iOS bundles but does not create an installer. `npm.cmd run build:apk` requests an Android APK through EAS Build after account, signing and API configuration. See [mobile distribution](docs/deployment.md) for Google Drive downloads and later store releases.
 
 ## Production integration
 
 The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. The original Vetify application still needs token introspection, subscriptions/capabilities, allowed planner origins and validated login return navigation. Native production login and refresh also require main-service integration. Existing planner endpoints retain authenticated access until a Pro capability policy is agreed.
 
-See [main integration](docs/core-integration.md), [deployment](docs/deployment.md) and [data migration/rollback](docs/migration.md). A separate Vercel frontend/API and a dedicated production database are prepared for deployment. Real data migration, DNS changes and deployment remain separate operations.
+See [main integration](docs/core-integration.md), [deployment](docs/deployment.md) and [data migration/rollback](docs/migration.md). Deploy the API with a dedicated production database and distribute the native app. The main application's QR code points to the APK download now and the app-store listings later. Real data migration, DNS changes, signed native builds and deployment remain separate operations.
