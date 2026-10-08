@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { z } from 'zod';
+import { nativeClientId, nativeRedirectUri } from '@vetify/planner-shared/native-auth';
 import { serverUrls } from '../config';
 import { ApiError, readResponse } from '../services/api-error';
 import { clearDrafts, getSession, writeSession, type AuthSession } from './session';
@@ -24,7 +25,7 @@ function withCredentials<T>(action: () => Promise<T>): Promise<T> {
   return next;
 }
 async function requestSession(
-  action: 'login' | 'refresh',
+  action: 'login' | 'refresh' | 'exchange',
   body: unknown,
   started: number,
 ): Promise<AuthSession> {
@@ -54,12 +55,28 @@ export async function login(userId: string) {
   refreshInFlight = null;
   return requestSession('login', { userId }, generation);
 }
+export async function exchangeMainCode(code: string): Promise<AuthSession> {
+  generation += 1;
+  const started = generation;
+  refreshInFlight = null;
+  writeSession(null);
+  await withCredentials(async () => {
+    if (started !== generation) throw new ApiError(401, 'The account session changed.');
+    await SecureStore.deleteItemAsync(refreshKey);
+  });
+  return requestSession(
+    'exchange',
+    { code, clientId: nativeClientId, redirectUri: nativeRedirectUri },
+    started,
+  );
+}
 export function refreshSession(): Promise<AuthSession> {
   const started = generation;
   refreshInFlight ??= (async () => {
     try {
       const refreshToken = await withCredentials(() => SecureStore.getItemAsync(refreshKey));
-      if (!refreshToken) throw new ApiError(401, 'Sign in to your account.');
+      if (!refreshToken)
+        throw new ApiError(401, 'Scan the connection QR from your signed-in Vetify account.');
       return await requestSession('refresh', { refreshToken }, started);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401 && started === generation) {

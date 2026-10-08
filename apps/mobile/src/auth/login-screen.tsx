@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Button, Card, colors, ErrorMessage, Notice } from '../components/ui';
+import { Button, Card, colors, ErrorMessage } from '../components/ui';
 import { login } from './main-auth';
 
-export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
+export function LoginScreen({
+  onSignedIn,
+  initialError = '',
+}: {
+  onSignedIn: () => void;
+  initialError?: string;
+}) {
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
+  useEffect(() => setError(initialError), [initialError]);
   async function signIn(userId: string) {
     setPending(true);
     setError('');
@@ -27,7 +34,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
       </Text>
       <Card>
         <Text style={styles.heading}>
-          {__DEV__ ? 'Choose a demo account' : 'Sign in to Vetify'}
+          {__DEV__ ? 'Choose a demo account' : 'Connect your Vetify account'}
         </Text>
         {__DEV__ ? (
           <>
@@ -44,11 +51,11 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
               onPress={() => void signIn('000000000000000000000002')}
             />
           </>
-        ) : (
-          <Notice tone="warning">
-            Sign-in is currently unavailable. Please contact Vetify support.
-          </Notice>
-        )}
+        ) : null}
+        <Text style={styles.detail}>
+          After installing the app, scan your personal connection QR from your signed-in Vetify
+          account on your computer.
+        </Text>
         <ErrorMessage message={error} />
       </Card>
     </View>
