@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import { focusManager, onlineManager } from '@tanstack/react-query';
 import { AuthBoundary } from './auth/auth-boundary';
+import { authColors } from './auth/auth-theme';
+import { getSession, subscribeSession } from './auth/session';
 import { AppHeader } from './components/app-header';
 import { colors, Notice } from './components/ui';
 import PlannerPage from './features/planner/planner-page';
@@ -40,9 +42,12 @@ function ConnectedPlanner() {
   );
 }
 export default function App() {
+  const session = useSyncExternalStore(subscribeSession, getSession);
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: session ? colors.background : authColors.background }}
+      >
         <StatusBar style="dark" />
         <KeyboardAvoidingView
           style={{ flex: 1 }}

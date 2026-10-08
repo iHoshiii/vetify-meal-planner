@@ -83,7 +83,9 @@ describe('native account credentials', () => {
   it('rejects a malformed response before persisting credentials', async () => {
     const { login, getSession } = await modules();
     mocks.fetch.mockResolvedValueOnce(response({ ...authResponse, refreshToken: '' }));
-    await expect(login('owner-a')).rejects.toMatchObject({ status: 503 });
+    await expect(
+      login({ email: 'owner@example.test', password: 'Secret123!' }),
+    ).rejects.toMatchObject({ status: 503 });
     expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
     expect(mocks.credentials.get(refreshKey)).toBe('original-refresh-token');
     expect(getSession()).toBeNull();
@@ -93,7 +95,9 @@ describe('native account credentials', () => {
     const { login, getSession } = await modules();
     mocks.fetch.mockResolvedValueOnce(response(authResponse));
     mocks.secure.setItemAsync.mockRejectedValueOnce(new Error('Secure storage unavailable'));
-    await expect(login('owner-a')).rejects.toThrow('Secure storage unavailable');
+    await expect(login({ email: 'owner@example.test', password: 'Secret123!' })).rejects.toThrow(
+      'Secure storage unavailable',
+    );
     expect(mocks.credentials.get(refreshKey)).toBe('original-refresh-token');
     expect(getSession()).toBeNull();
   });
@@ -104,6 +108,44 @@ describe('native account credentials', () => {
     mocks.fetch.mockResolvedValueOnce(response({ message: 'Expired refresh token' }, 401));
     await expect(refreshSession()).rejects.toMatchObject({ status: 401 });
     expect(mocks.secure.deleteItemAsync).toHaveBeenCalledWith(refreshKey);
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
+    expect(getSession()).toBeNull();
+  });
+
+  it.each(['login', 'signup'] as const)(
+    'supports production %s with credentials',
+    async (action) => {
+      const auth = await modules();
+      vi.stubGlobal('__DEV__', false);
+      mocks.fetch.mockResolvedValueOnce(response(authResponse));
+      const credentials = { email: 'owner@example.test', password: 'Secret123!' };
+      const input =
+        action === 'login'
+          ? credentials
+          : {
+              ...credentials,
+              name: 'Owner',
+              confirmPassword: credentials.password,
+            };
+      if (action === 'login') await auth.login(credentials);
+      else
+        await auth.signup({ ...credentials, name: 'Owner', confirmPassword: credentials.password });
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        `http://localhost:5000/auth/native/${action}`,
+        expect.objectContaining({ method: 'POST', body: JSON.stringify(input) }),
+      );
+      expect(auth.getSession()?.user.id).toBe('owner-a');
+      expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+    },
+  );
+
+  it('returns to login after a stored demo credential is rejected by the real service', async () => {
+    const { refreshSession, getSession } = await modules();
+    mocks.fetch.mockResolvedValueOnce(response({ error: 'Invalid refresh token' }, 400));
+    await expect(refreshSession()).rejects.toMatchObject({
+      status: 401,
+      reason: 'session-expired',
+    });
     expect(mocks.credentials.has(refreshKey)).toBe(false);
     expect(getSession()).toBeNull();
   });
@@ -121,5 +163,38 @@ describe('native account credentials', () => {
     expect(mocks.credentials.has(refreshKey)).toBe(false);
     expect(mocks.drafts.has(ownerDraft)).toBe(false);
     expect(mocks.drafts.get(otherDraft)).toBe('other owner draft');
+  });
+
+  it('stores social credentials using the native proof exchange', async () => {
+    const { beginSocialLogin, getSession } = await modules();
+    const complete = beginSocialLogin();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await complete('social-code', 'proof-verifier');
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'http://localhost:5000/auth/native/oauth/exchange',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          code: 'social-code',
+          codeVerifier: 'proof-verifier',
+          clientId: 'vetify-meal-planner',
+          redirectUri: 'vetify-planner://auth/social',
+        }),
+      }),
+    );
+    expect(getSession()?.user.id).toBe(authResponse.user.id);
+    expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+  });
+
+  it('does not complete a browser login after logout changes the session', async () => {
+    const { beginSocialLogin, logout, getSession } = await modules();
+    const complete = beginSocialLogin();
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await logout();
+    await expect(complete('social-code', 'proof-verifier')).rejects.toMatchObject({ status: 401 });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
+    expect(getSession()).toBeNull();
   });
 });

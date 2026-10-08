@@ -1,11 +1,17 @@
 import * as SecureStore from 'expo-secure-store';
 import { z } from 'zod';
-import { nativeClientId, nativeRedirectUri } from '@vetify/planner-shared/native-auth';
+import {
+  nativeClientId,
+  nativeRedirectUri,
+  nativeSocialRedirectUri,
+} from '@vetify/planner-shared/native-auth';
 import { serverUrls } from '../config';
 import { ApiError, readResponse } from '../services/api-error';
 import { clearDrafts, getSession, writeSession, type AuthSession } from './session';
 
 const refreshKey = 'vetify.refresh-token';
+export type LoginInput = { email: string; password: string };
+export type SignupInput = LoginInput & { name: string; confirmPassword: string };
 const authSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
@@ -25,10 +31,11 @@ function withCredentials<T>(action: () => Promise<T>): Promise<T> {
   return next;
 }
 async function requestSession(
-  action: 'login' | 'refresh' | 'exchange',
+  action: 'login' | 'signup' | 'refresh' | 'exchange' | 'oauth/exchange',
   body: unknown,
   started: number,
 ): Promise<AuthSession> {
+  if (started !== generation) throw new ApiError(401, 'The account session changed.');
   const value = await readResponse(
     await fetch(`${serverUrls().main}/auth/native/${action}`, {
       method: 'POST',
@@ -49,11 +56,26 @@ async function requestSession(
   });
   return session;
 }
-export async function login(userId: string) {
-  if (!__DEV__) throw new Error('Demo login is available only in development.');
+export async function login(input: LoginInput) {
   generation += 1;
   refreshInFlight = null;
-  return requestSession('login', { userId }, generation);
+  return requestSession('login', input, generation);
+}
+export async function signup(input: SignupInput) {
+  generation += 1;
+  refreshInFlight = null;
+  return requestSession('signup', input, generation);
+}
+export function beginSocialLogin() {
+  generation += 1;
+  refreshInFlight = null;
+  const started = generation;
+  return (code: string, codeVerifier: string) =>
+    requestSession(
+      'oauth/exchange',
+      { code, codeVerifier, clientId: nativeClientId, redirectUri: nativeSocialRedirectUri },
+      started,
+    );
 }
 export async function exchangeMainCode(code: string): Promise<AuthSession> {
   generation += 1;
@@ -76,15 +98,21 @@ export function refreshSession(): Promise<AuthSession> {
     try {
       const refreshToken = await withCredentials(() => SecureStore.getItemAsync(refreshKey));
       if (!refreshToken)
-        throw new ApiError(401, 'Scan the connection QR from your signed-in Vetify account.');
+        throw new ApiError(401, 'Log in to your Vetify account.', 'login-required');
       return await requestSession('refresh', { refreshToken }, started);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401 && started === generation) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.status === 400) &&
+        started === generation
+      ) {
         await withCredentials(async () => {
           if (started !== generation) return;
           await SecureStore.deleteItemAsync(refreshKey);
           if (started === generation) writeSession(null);
         });
+        if (error.status === 400)
+          throw new ApiError(401, 'Your session has expired. Log in again.', 'session-expired');
       }
       throw error;
     } finally {

@@ -66,7 +66,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
       .catch((error: unknown) => {
         if (!active) return;
         if (error instanceof ApiError && error.status === 401) {
-          setMessage(error.message);
+          setMessage(error.reason === 'login-required' ? '' : error.message);
           setPrincipal(null);
           setStatus('unconnected');
         } else {
