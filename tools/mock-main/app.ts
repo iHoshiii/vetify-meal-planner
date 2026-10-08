@@ -3,6 +3,7 @@ import cors from 'cors';
 import { demoOrigins, demoUsers, mockCookieName } from './demo-users';
 import { loginPage, safeReturnTo } from './login-page';
 import { createSessionStore } from './session-store';
+import { registerNativeAuth } from './native-auth';
 
 export function createMockMain() {
   if (process.env.NODE_ENV === 'production') throw new Error('Mock main cannot run in production');
@@ -16,6 +17,7 @@ export function createMockMain() {
   app.use(cors({ origin: demoOrigins, credentials: true }));
   app.use(express.json({ limit: '16kb' }));
   app.use(express.urlencoded({ extended: false, limit: '16kb' }));
+  registerNativeAuth(app, sessions);
   const cookie = { httpOnly: true, sameSite: 'lax' as const, path: '/', maxAge: 86_400_000 };
   function refreshCookie(header?: string) {
     const value = header
