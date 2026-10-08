@@ -4,15 +4,16 @@ import { demoOrigins, demoUsers, mockCookieName } from './demo-users';
 import { loginPage, safeReturnTo } from './login-page';
 import { createSessionStore } from './session-store';
 import { registerNativeAuth } from './native-auth';
+import { registerNativeSso } from './native-sso';
 
-export function createMockMain() {
+export function createMockMain(now = Date.now) {
   if (process.env.NODE_ENV === 'production') throw new Error('Mock main cannot run in production');
   const app = express();
   const capabilities = (process.env.MOCK_PRO_CAPABILITIES ?? 'planner.demo-pro')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  const sessions = createSessionStore(Date.now, capabilities);
+  const sessions = createSessionStore(now, capabilities);
   app.disable('x-powered-by');
   app.use(cors({ origin: demoOrigins, credentials: true }));
   app.use(express.json({ limit: '16kb' }));
@@ -26,6 +27,7 @@ export function createMockMain() {
       .find((part) => part.startsWith(`${mockCookieName}=`));
     return value?.slice(mockCookieName.length + 1) ?? '';
   }
+  registerNativeSso(app, sessions, refreshCookie, now);
   app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok', mode: 'local-mock' }));
   app.get('/login', (req, res) => {
     const returnTo = safeReturnTo(req.query.returnTo ?? demoOrigins[0]);
