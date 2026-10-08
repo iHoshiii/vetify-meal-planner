@@ -46,7 +46,12 @@ const services = [
     : {
         name: 'mobile',
         cwd: 'apps/mobile',
-        args: ['node_modules/expo/bin/cli', 'start', '--lan'],
+        args: [
+          'node_modules/expo/bin/cli',
+          'start',
+          '--lan',
+          ...(process.argv.includes('--go') ? ['--go'] : []),
+        ],
         env: nativeEnv,
         interactive: true,
       },

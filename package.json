@@ -18,6 +18,8 @@
     "predev:web:local": "npm run build:shared",
     "dev:web:local": "node scripts/dev.mjs --web --local-db",
     "dev:mobile": "npm run start --workspace @vetify/planner-mobile",
+    "predev:mobile:local": "npm run build:shared",
+    "dev:mobile:local": "node scripts/dev.mjs --local-db --go",
     "dev:web": "npm run dev --workspace @vetify/planner-web",
     "dev:api": "npm run dev --workspace @vetify/planner-api",
     "dev:mock-main": "tsx watch tools/mock-main/index.ts",
