@@ -1,6 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import { networkInterfaces } from 'node:os';
+import { startLocalDatabase } from './dev-database.mjs';
 
 const web = process.argv.includes('--web');
 const address =
@@ -60,7 +61,8 @@ if (!web) {
 }
 const children = [];
 let stopping = false;
-function stop(code = 0) {
+let databaseStartup = Promise.resolve();
+async function stop(code = 0) {
   if (stopping) return;
   stopping = true;
   for (const child of children) {
@@ -68,9 +70,27 @@ function stop(code = 0) {
       execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true });
     } else child.kill();
   }
+  try {
+    const database = await databaseStartup.catch(() => undefined);
+    await database?.stop({ doCleanup: false });
+  } catch (error) {
+    console.error(error.message);
+    code = 1;
+  }
   process.exitCode = code;
 }
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => void stop());
+if (process.argv.includes('--local-db')) {
+  databaseStartup = startLocalDatabase();
+  try {
+    await databaseStartup;
+  } catch (error) {
+    console.error(error.message);
+    await stop(1);
+  }
+}
 for (const service of services) {
+  if (stopping) break;
   const child = spawn(process.execPath, [path.resolve(service.args[0]), ...service.args.slice(1)], {
     cwd: path.resolve(service.cwd),
     env: { ...process.env, ...service.env },
@@ -88,4 +108,3 @@ for (const service of services) {
     if (!stopping) stop(code ?? 1);
   });
 }
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => stop());
