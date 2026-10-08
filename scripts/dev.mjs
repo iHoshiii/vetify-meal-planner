@@ -68,6 +68,7 @@ const services = [
 ];
 if (!web) {
   console.log(`Mobile API: ${nativeEnv.EXPO_PUBLIC_PLANNER_API_URL}`);
+  console.log(`Vetify account API: ${nativeEnv.EXPO_PUBLIC_MAIN_API_URL}`);
   console.log(
     devClient
       ? 'Keep your phone and computer on the same Wi-Fi. Open the QR code in the installed Vetify development app.'

@@ -213,6 +213,41 @@ it('shows incorrect credential errors without treating the user as signed in', a
   expect(screen.getByRole('button', { name: 'Log in' }).hasAttribute('disabled')).toBe(false);
 });
 
+it('asks an unregistered user to create an account before logging in', async () => {
+  auth.login.mockRejectedValueOnce(new ApiError(401, 'Invalid credentials', 'account-not-found'));
+  const onSignedIn = vi.fn();
+  render(createElement(LoginScreen, { onSignedIn }));
+  enter('Email', 'new@example.com');
+  enter('Password', 'MyPassword1!');
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+  await waitFor(() =>
+    expect(screen.getByRole('alert').textContent).toBe('Create an account first to use the app.'),
+  );
+  expect(onSignedIn).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
+  expect(screen.getByLabelText('Name')).toBeTruthy();
+  expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('new@example.com');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('keeps connection failures readable and allows login to be retried', async () => {
+  const message = 'Cannot connect to Vetify. Check your connection and try again.';
+  auth.login.mockRejectedValueOnce(new ApiError(0, message, 'network-unreachable'));
+  const onSignedIn = vi.fn();
+  render(createElement(LoginScreen, { onSignedIn }));
+  enter('Email', 'owner@example.com');
+  enter('Password', 'MyPassword1!');
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(message));
+  expect(onSignedIn).not.toHaveBeenCalled();
+  expect(screen.queryByText('Create an account first to use the app.')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Log in' }).hasAttribute('disabled')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+  await waitFor(() => expect(onSignedIn).toHaveBeenCalledExactlyOnceWith());
+  expect(auth.login).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
 it('registers a shared account and clears passwords when switching forms', async () => {
   const onSignedIn = vi.fn();
   render(createElement(LoginScreen, { onSignedIn }));
@@ -343,7 +378,9 @@ it('rejects mismatched password confirmation before submitting registration', ()
 });
 
 it('shows registration errors and allows returning to login', async () => {
-  auth.signup.mockRejectedValueOnce(new Error('An account already uses this email.'));
+  auth.signup.mockRejectedValueOnce(
+    new ApiError(409, 'User with that email already exists', 'account-exists'),
+  );
   render(createElement(LoginScreen, { onSignedIn: vi.fn() }));
   fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
   enter('Name', 'New Owner');
@@ -352,7 +389,7 @@ it('shows registration errors and allows returning to login', async () => {
   enter('Confirm password', 'MyPassword1!');
   fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
   await waitFor(() =>
-    expect(screen.getByRole('alert').textContent).toBe('An account already uses this email.'),
+    expect(screen.getByRole('alert').textContent).toBe('Account already exist. Please login.'),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   expect(screen.queryByLabelText('Name')).toBeNull();

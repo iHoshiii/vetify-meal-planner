@@ -23,6 +23,10 @@ const providers = [
   { id: 'facebook', label: 'Facebook' },
   { id: 'tiktok', label: 'TikTok' },
 ] as const;
+const accountErrors: Record<string, string> = {
+  'account-not-found': 'Create an account first to use the app.',
+  'account-exists': 'Account already exist. Please login.',
+};
 
 export function LoginScreen({
   onSignedIn,
@@ -117,6 +121,7 @@ export function LoginScreen({
           : [];
       setError(
         validation.join('\n') ||
+          (cause instanceof ApiError && accountErrors[cause.reason ?? '']) ||
           (cause instanceof Error ? cause.message : 'Could not sign in. Please try again.'),
       );
     } finally {

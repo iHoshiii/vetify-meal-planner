@@ -52,6 +52,12 @@ npm.cmd run dev:mobile:local
 
 Replace the example address with your computer's address. `npm.cmd run dev:mobile` starts only Expo when the API and account services are already running and reachable from the phone.
 
+If email/password login cannot connect, open the printed **Vetify account API** URL with `/health` appended in the phone's browser. It must return `status: ok` and `db: connected`. After updating startup scripts, stop the old stack with Ctrl+C and restart `npm.cmd run dev:mobile:local`. A running mock account service on port 8002 does not provide the mobile app's shared accounts on port 8000.
+
+Failed account requests produce development logs prefixed `[auth]` with the endpoint and failure category or HTTP status, without credentials or response bodies. To inspect a warning shown at the bottom of Expo Go, tap it for details or press `j` in the Expo terminal and open the React Native DevTools Console. See [Expo's logging instructions](https://docs.expo.dev/workflow/logging/).
+
+The real Vetify API needs its existing MongoDB connection. If startup reports an Atlas connection or TLS failure, check that the cluster is running and that the computer's current public IP is allowed in Atlas Network Access. These are checks for possible causes; a TLS alert alone does not identify the cause. See [Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/).
+
 For an Android emulator, install Android Studio, start an emulator and press `a` in the Expo terminal. The iOS simulator requires macOS and Xcode. An iPhone with Expo Go works with this Windows development setup.
 
 ## Local browser preview
