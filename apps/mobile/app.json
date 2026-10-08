@@ -3,6 +3,7 @@
     "name": "Vetify Meal Planner",
     "slug": "vetify-meal-planner",
     "version": "1.0.0",
+    "platforms": ["android", "ios"],
     "orientation": "portrait",
     "scheme": "vetify-planner",
     "userInterfaceStyle": "light",
