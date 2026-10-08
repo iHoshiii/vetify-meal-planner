@@ -1,23 +1,19 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Express } from 'express';
-import { z } from 'zod';
 import {
-  nativeClientId,
   nativeRedirectUri,
   nativeCodeExchangeSchema,
+  nativeHandoffRequestSchema,
 } from '@vetify/planner-shared/native-auth';
 import { demoUsers } from './demo-users';
 import type { createSessionStore } from './session-store';
 
-const authorizeSchema = z.strictObject({
-  client_id: z.literal(nativeClientId),
-  redirect_uri: z.literal(nativeRedirectUri),
-  response_type: z.literal('code'),
-  state: z.string().regex(/^[A-Za-z0-9._~-]{16,128}$/),
-  code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-  code_challenge_method: z.literal('S256'),
-});
-type Grant = { sourceToken: string; challenge: string; expiresAt: number };
+type Grant = {
+  sourceToken: string;
+  clientId: string;
+  redirectUri: string;
+  expiresAt: number;
+};
 
 export function registerNativeSso(
   app: Express,
@@ -37,27 +33,26 @@ export function registerNativeSso(
       ? (demoUsers.find((user) => user.id === source.user.id) ?? null)
       : null;
   }
-  app.get('/api/v1/auth/native/authorize', (req, res) => {
+  app.post('/api/v1/auth/native/handoff', (req, res) => {
     res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
-    const parsed = authorizeSchema.safeParse(req.query);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid authorization request' });
-    const callback = new URL(nativeRedirectUri);
-    callback.searchParams.set('state', parsed.data.state);
+    const parsed = nativeHandoffRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid handoff request' });
     const sourceToken = refreshCookie(req.headers.cookie);
-    if (!activeUser(sourceToken)) {
-      callback.searchParams.set('error', 'login_required');
-      return res.redirect(302, callback.href);
-    }
+    if (!activeUser(sourceToken))
+      return res.status(401).json({ error: 'Sign in to the main account service' });
     prune();
     if (grants.size >= 512) grants.delete(grants.keys().next().value!);
     const code = randomBytes(32).toString('base64url');
+    const expiresAt = now() + 60_000;
     grants.set(code, {
       sourceToken,
-      challenge: parsed.data.code_challenge,
-      expiresAt: now() + 60_000,
+      clientId: parsed.data.clientId,
+      redirectUri: parsed.data.redirectUri,
+      expiresAt,
     });
+    const callback = new URL(nativeRedirectUri);
     callback.searchParams.set('code', code);
-    return res.redirect(302, callback.href);
+    return res.json({ url: callback.href, expiresAt: new Date(expiresAt).toISOString() });
   });
   app.post('/api/v1/auth/native/exchange', (req, res) => {
     res.set('Cache-Control', 'no-store');
@@ -66,11 +61,11 @@ export function registerNativeSso(
     const grant = grants.get(parsed.data.code);
     grants.delete(parsed.data.code);
     prune();
-    const challenge = createHash('sha256').update(parsed.data.codeVerifier).digest('base64url');
     if (
       !grant ||
       grant.expiresAt <= now() ||
-      !timingSafeEqual(Buffer.from(grant.challenge), Buffer.from(challenge))
+      grant.clientId !== parsed.data.clientId ||
+      grant.redirectUri !== parsed.data.redirectUri
     )
       return res.status(401).json({ error: 'Invalid or expired authorization code' });
     const user = activeUser(grant.sourceToken);

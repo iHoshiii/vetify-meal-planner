@@ -3,17 +3,21 @@ import { describe, expect, it } from 'vitest';
 import { nativeRedirectUri } from '@vetify/planner-shared/native-auth';
 import { createMockMain } from './app';
 import { demoUsers } from './demo-users';
-import { authorization, signedInMain } from './native-sso.fixtures';
+import { handoffBody, signedInMain } from './native-sso.fixtures';
 
 describe('native account handoff', () => {
-  it('reuses main browser login without another account prompt or tokens in the redirect', async () => {
-    const { app, authorize, login, exchange } = await signedInMain();
-    const response = await authorize();
-    const callback = new URL(response.headers.location);
+  it('uses the computer main login to issue an account QR without reusable session tokens', async () => {
+    const { app, handoff, login, exchange } = await signedInMain();
+    const response = await handoff();
+    const callback = new URL(response.body.url);
     expect(`${callback.protocol}//${callback.host}${callback.pathname}`).toBe(nativeRedirectUri);
-    expect(callback.searchParams.get('state')).toBe(authorization.state);
-    expect([...callback.searchParams.keys()].sort()).toEqual(['code', 'state']);
-    expect(response.headers.location).not.toContain(login.body.accessToken);
+    expect([...callback.searchParams.keys()]).toEqual(['code']);
+    expect(response.body.url).not.toContain(login.body.accessToken);
+    const sourceRefresh = login.headers['set-cookie'][0].split(';')[0].split('=')[1];
+    expect(response.body.url).not.toContain(sourceRefresh);
+    const lifetime = Date.parse(response.body.expiresAt) - Date.now();
+    expect(lifetime).toBeGreaterThan(0);
+    expect(lifetime).toBeLessThanOrEqual(60_000);
     expect(response.headers['cache-control']).toBe('no-store');
     const mobile = await exchange(callback.searchParams.get('code')!).expect(200);
     expect(mobile.body.user.id).toBe(demoUsers[0].id);
@@ -26,15 +30,12 @@ describe('native account handoff', () => {
       .expect(200);
   });
 
-  it('returns login_required without offering a separate mobile login', async () => {
+  it('refuses to issue an account QR without an existing main browser login', async () => {
     const response = await request(createMockMain())
-      .get('/api/v1/auth/native/authorize')
-      .query(authorization)
-      .expect(302);
-    const callback = new URL(response.headers.location);
-    expect(callback.searchParams.get('error')).toBe('login_required');
-    expect(callback.searchParams.get('state')).toBe(authorization.state);
-    expect(callback.searchParams.has('code')).toBe(false);
+      .post('/api/v1/auth/native/handoff')
+      .send(handoffBody)
+      .expect(401);
+    expect(response.body.url).toBeUndefined();
   });
 
   it('consumes codes once even when concurrent requests try the same grant', async () => {
@@ -59,6 +60,12 @@ describe('native account handoff', () => {
     const code = await issueCode();
     await browser.post('/api/v1/auth/logout').expect(204);
     await exchange(code).expect(401);
+  });
+
+  it('refuses another account QR after the browser session has ended', async () => {
+    const { browser } = await signedInMain();
+    await browser.post('/api/v1/auth/logout').expect(204);
+    await browser.post('/api/v1/auth/native/handoff').send(handoffBody).expect(401);
   });
 
   it('keeps the established native session independent of subsequent browser logout', async () => {
