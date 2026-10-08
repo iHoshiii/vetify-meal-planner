@@ -2,8 +2,15 @@ import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { startLocalDatabase } from './dev-database.mjs';
+import { localMainApiUrl, resolveMainService, waitForMain } from './dev-main.ts';
 
 const web = process.argv.includes('--web');
+const devClient = process.argv.includes('--dev-client');
+if (devClient && process.argv.includes('--go')) {
+  console.error('Use either --go or --dev-client, not both.');
+  process.exit(1);
+}
+const mainApiUrl = process.env.MAIN_API_URL ?? localMainApiUrl;
 const address =
   process.env.PLANNER_DEV_HOST ??
   Object.values(networkInterfaces())
@@ -22,20 +29,23 @@ const nativeEnv = web
       EXPO_PUBLIC_PLANNER_API_URL:
         process.env.EXPO_PUBLIC_PLANNER_API_URL ?? `http://${address}:8001/api/v1`,
       EXPO_PUBLIC_MAIN_API_URL:
-        process.env.EXPO_PUBLIC_MAIN_API_URL ?? `http://${address}:8002/api/v1`,
+        process.env.EXPO_PUBLIC_MAIN_API_URL ?? `http://${address}:8000/api/v1`,
     };
 const services = [
+  ...(web
+    ? [
+        {
+          name: 'auth',
+          cwd: '.',
+          args: ['node_modules/tsx/dist/cli.mjs', 'watch', 'tools/mock-main/index.ts'],
+        },
+      ]
+    : []),
   {
     name: 'api',
     cwd: '.',
     args: ['node_modules/tsx/dist/cli.mjs', 'watch', 'apps/api/src/index.ts'],
-    env: web ? {} : { HOST: '0.0.0.0' },
-  },
-  {
-    name: 'auth',
-    cwd: '.',
-    args: ['node_modules/tsx/dist/cli.mjs', 'watch', 'tools/mock-main/index.ts'],
-    env: web ? {} : { MOCK_MAIN_HOST: '0.0.0.0' },
+    env: web ? {} : { HOST: '0.0.0.0', AUTH_MODE: 'main', MAIN_API_URL: mainApiUrl },
   },
   web
     ? {
@@ -49,8 +59,8 @@ const services = [
         args: [
           'node_modules/expo/bin/cli',
           'start',
-          '--lan',
-          ...(process.argv.includes('--go') ? ['--go'] : []),
+          process.argv.includes('--tunnel') ? '--tunnel' : '--lan',
+          devClient ? '--dev-client' : '--go',
         ],
         env: nativeEnv,
         interactive: true,
@@ -59,7 +69,9 @@ const services = [
 if (!web) {
   console.log(`Mobile API: ${nativeEnv.EXPO_PUBLIC_PLANNER_API_URL}`);
   console.log(
-    'Keep your phone and computer on the same Wi-Fi. Scan the Expo QR code to open the app.',
+    devClient
+      ? 'Keep your phone and computer on the same Wi-Fi. Open the QR code in the installed Vetify development app.'
+      : 'Keep your phone and computer on the same Wi-Fi. Scan the Expo QR code to open the app.',
   );
   if (address === '127.0.0.1')
     console.log('No LAN address found. Set PLANNER_DEV_HOST to your computer Wi-Fi IPv4 address.');
@@ -85,7 +97,16 @@ async function stop(code = 0) {
   process.exitCode = code;
 }
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => void stop());
-if (process.argv.includes('--local-db')) {
+if (!web) {
+  try {
+    const mainService = await resolveMainService(mainApiUrl);
+    if (mainService) services.unshift(mainService);
+  } catch (error) {
+    console.error(error.message);
+    await stop(1);
+  }
+}
+if (!stopping && process.argv.includes('--local-db')) {
   databaseStartup = startLocalDatabase();
   try {
     await databaseStartup;
@@ -112,4 +133,12 @@ for (const service of services) {
   child.on('exit', (code) => {
     if (!stopping) stop(code ?? 1);
   });
+  if (service.waitForMain) {
+    try {
+      await waitForMain(() => stopping, mainApiUrl);
+    } catch (error) {
+      console.error(error.message);
+      await stop(1);
+    }
+  }
 }

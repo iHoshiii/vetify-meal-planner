@@ -26,5 +26,5 @@ export function resolveServerUrls(settings: Settings) {
       throw new Error('Mobile API URLs must end with /api/v1.');
     return url.href.replace(/\/$/, '');
   }
-  return { planner: resolve(settings.plannerUrl, 8001), main: resolve(settings.mainUrl, 8002) };
+  return { planner: resolve(settings.plannerUrl, 8001), main: resolve(settings.mainUrl, 8000) };
 }

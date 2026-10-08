@@ -61,9 +61,11 @@ An iPhone cannot install an Android APK or an unsigned IPA downloaded from Drive
 
 ## Native authentication before release
 
-The current production login screen has no working sign-in flow. Demo accounts are development-only. Implement real main-service native sign-in, refresh and logout before distributing the app to users. The client expects native session responses with access and refresh tokens and stores the refresh token in SecureStore. Uploading an APK does not complete this integration.
+The mobile login screen uses Vetify's native email/password login and registration endpoints. It also accepts a personal connection QR from a signed-in Vetify computer session. Deploy the matching Vetify backend changes for these routes, token introspection, refresh and logout before distributing the app. Accounts registered in either app are shared. The client stores its native refresh token in SecureStore; its session is independent of the computer's browser session.
 
-Use HTTPS staging APIs to verify native sign-in, direct planner calls, secure credential storage, logout/relaunch and timeout/fail-closed behavior. Local demo success does not prove production authentication. Feeding writes require connectivity and are not queued.
+Deploy the native OAuth start/exchange routes and configure the existing Facebook, Google and TikTok providers to enable social sign-in. Main's public `SERVER_URL` must match the mobile main API origin, and each provider must register `/api/v1/auth/{provider}/callback` on that origin. Test the return to `vetify-planner://auth/social` in a development build or APK, rather than Expo Go. Vetify's current account model requires an email for new social accounts, so TikTok only signs in already linked identities.
+
+Use HTTPS staging APIs to verify registration, native sign-in, personal QR connection, direct planner calls, secure credential storage, logout/relaunch and timeout/fail-closed behavior. Local test success does not prove deployment configuration. Feeding writes require connectivity and are not queued.
 
 ## Release evidence
 

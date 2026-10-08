@@ -1,5 +1,12 @@
 {
   "build": {
+    "development": {
+      "node": "24.13.0",
+      "environment": "development",
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    },
     "apk": {
       "node": "24.13.0",
       "environment": "production",

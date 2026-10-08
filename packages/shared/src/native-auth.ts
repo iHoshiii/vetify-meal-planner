@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const nativeClientId = 'vetify-meal-planner';
 export const nativeRedirectUri = 'vetify-planner://auth/callback';
+export const nativeSocialRedirectUri = 'vetify-planner://auth/social';
 export const nativeHandoffRequestSchema = z
   .object({
     redirectUri: z.literal(nativeRedirectUri),

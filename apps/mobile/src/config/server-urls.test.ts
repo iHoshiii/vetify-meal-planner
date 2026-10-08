@@ -7,7 +7,7 @@ describe('native server addresses', () => {
       resolveServerUrls({ hostUri: '192.168.1.17:8081', platform: 'ios', development: true }),
     ).toEqual({
       planner: 'http://192.168.1.17:8001/api/v1',
-      main: 'http://192.168.1.17:8002/api/v1',
+      main: 'http://192.168.1.17:8000/api/v1',
     });
   });
   it('uses the Android emulator host when no Expo address is available', () => {

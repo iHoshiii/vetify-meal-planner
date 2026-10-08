@@ -1,10 +1,18 @@
 # Connect the planner to Vetify main
 
-The planner is independently initialized. Production SSO and subscriptions require the following main-repository work. The source application currently has no `/api/v1/auth/introspect` implementation or subscription authority. Local mock success does not establish production SSO.
+The planner has its own database and uses Vetify main as its account authority. The matching Vetify backend implements `/api/v1/auth/introspect` and native sessions. Deploy both repositories together for these integrations. Subscription authority and paid capability policy remain separate work.
+
+## Native login and registration
+
+The app calls `POST /api/v1/auth/native/login` with email and password, or `/auth/native/signup` with name, email, password and confirmPassword. Main uses the same account validation, password hashing and account collection as its browser login and registration. Both routes return a native access token, rotating refresh token and user. The planner never stores passwords or creates its own users collection.
+
+Social login starts with `POST /auth/native/oauth/start` using the provider, app state and S256 proof challenge. The browser uses main's existing registered provider callback. A verified native callback returns a 60-second, single-use code to `vetify-planner://auth/social`; `/auth/native/oauth/exchange` requires the app's verifier before creating its native session. Access and refresh tokens do not enter callback URLs, and ordinary browser OAuth keeps its existing behavior. Expo Go cannot receive this app scheme; use an installed development or release build.
+
+For a user already signed in on a computer, Vetify Settings creates a short-lived, single-use personal connection QR. The mobile app exchanges its code through `/auth/native/exchange`. This creates an independent native session. `/auth/native/refresh` rotates its credential; `/auth/native/logout` revokes the native session. A public app-download QR does not carry a personal login session.
 
 ## Required main API
 
-Implement `POST /api/v1/auth/introspect` using the presented main-issued Bearer token. Main verifies signature, token expiry, current account state and subscription validity. Its response is the versioned contract in `packages/shared`, with these fields:
+`POST /api/v1/auth/introspect` uses the presented main-issued Bearer token. Main verifies signature, token expiry, native session validity and current account state. Its response is the versioned contract in `packages/shared`, with these fields:
 
 ```json
 {
@@ -45,7 +53,7 @@ A host-only refresh cookie on the main API host supports credentialed calls from
 
 The web dev proxy forwards `/api` unchanged to 8001 and rewrites `/main-api` to `/api` on 8002. Web defaults are `VITE_PLANNER_API_URL=/api/v1`, `VITE_MAIN_API_URL=/main-api/v1` and `VITE_MAIN_LOGIN_URL=http://localhost:8002/login`. Backend `MAIN_API_URL` is `http://localhost:8002/api/v1`.
 
-To test real main after implementing this contract, use `AUTH_MODE=main`, point backend `MAIN_API_URL` to port 8000, change the web `/main-api` proxy target to 8000 and set `VITE_MAIN_LOGIN_URL` to real main's login screen. Keep versioned bases ending `/api/v1` without a trailing slash. Main must allow the web origin and validated return URL. Changing URLs alone cannot supply its missing endpoints.
+`npm run dev:mobile:local` starts or reuses real main on port 8000 and configures the planner with `AUTH_MODE=main`. It starts Vetify's development API entry without its scheduled background jobs. Main must have its dependencies and database/server configuration ready. Native clients use the computer's LAN address; versioned bases end `/api/v1` without a trailing slash. The browser preview keeps the mock service. Testing it against real main also requires changing its proxy/login URLs and configuring allowed browser origins and return navigation.
 
 Mock main binds to loopback and uses a unique httpOnly demo cookie. It owns deterministic demo identities. The planner has no users collection. Production configuration rejects mock mode. Mock credentials and capability settings are development fixtures only.
 
@@ -55,4 +63,4 @@ At cutover, change main account export to include core data and a planner export
 
 Deactivation retains planner data and blocks access through main account checks. Future deletion/anonymization requires durable authenticated lifecycle delivery with retries and idempotent planner cleanup. Main should record pending delivery and finish its account operation even while the planner is down. Account deletion is outside initialization.
 
-Before cutover, verify native login, refresh, logout/relaunch, active/blocked account behavior, entitlement refusal, account timezone boundaries, ownership enforcement and main availability during a planner outage. The native app stores refresh tokens with Expo SecureStore. Main must provide the native authentication protocol, and production native sign-in still needs integration.
+Before cutover, verify native registration, login, QR connection, refresh, logout/relaunch, active/blocked account behavior, entitlement refusal, account timezone boundaries, ownership enforcement and main availability during a planner outage. The native app stores refresh tokens with Expo SecureStore. Deploy and verify the matching main authentication routes against staging before release.
