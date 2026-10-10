@@ -389,7 +389,7 @@ it('shows registration errors and allows returning to login', async () => {
   enter('Confirm password', 'MyPassword1!');
   fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
   await waitFor(() =>
-    expect(screen.getByRole('alert').textContent).toBe('Account already exist. Please login.'),
+    expect(screen.getByRole('alert').textContent).toBe('Account already exist. Please login'),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   expect(screen.queryByLabelText('Name')).toBeNull();

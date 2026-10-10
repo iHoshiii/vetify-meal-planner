@@ -176,7 +176,7 @@ describe('native account credentials', () => {
   it('preserves account errors and logs only the response status', async () => {
     const { signup } = await modules();
     mocks.fetch.mockResolvedValueOnce(
-      response({ error: 'Account already exist. Please login.', reason: 'account-exists' }, 409),
+      response({ error: 'Account already exist. Please login', reason: 'account-exists' }, 409),
     );
     await expect(
       signup({
@@ -188,7 +188,7 @@ describe('native account credentials', () => {
     ).rejects.toMatchObject({
       status: 409,
       reason: 'account-exists',
-      message: 'Account already exist. Please login.',
+      message: 'Account already exist. Please login',
     });
     expect(mocks.diagnostic).toHaveBeenCalledExactlyOnceWith(
       'http://localhost:5000/auth/native/signup',

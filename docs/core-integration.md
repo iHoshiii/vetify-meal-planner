@@ -1,6 +1,6 @@
 # Connect the planner to Vetify main
 
-The planner has its own database and uses Vetify main as its account authority. The matching Vetify backend implements `/api/v1/auth/introspect` and native sessions. Deploy both repositories together for these integrations. Subscription authority and paid capability policy remain separate work.
+The planner has its own database and uses Vetify main as its account and subscription authority. The matching Vetify backend implements `/api/v1/auth/introspect` and native sessions. Deploy both repositories together for these integrations. Paid feature restrictions remain a separate policy decision.
 
 ## Native login and registration
 
@@ -30,7 +30,7 @@ These dates illustrate the format. Compute actual dates from the verified creden
 
 Return 401 for invalid/expired credentials, 403 for blocked accounts, and 503 for unavailable authority. The planner validates the response and caches positive authorization for at most 30 seconds, capped by `validUntil`. It hashes cache keys, bounds cache size and rejects expired cache during outages. Subscription changes and account bans therefore take effect within that window.
 
-Maintain subscription state and capabilities in main. Roles and subscription plans are separate. Admin-managed test subscriptions are sufficient until a payment system is chosen. Decide the actual paid capability policy before adding entitlement gates to currently accessible planner routes. `requireEntitlement` is implemented and tested, but extraction alone does not define a new paid feature.
+Maintain subscription state and capabilities in main, keyed by the same user ID used by browser and mobile authentication. Roles and subscription plans are separate. The mobile account header shows the main-authorized Free or Pro plan and rechecks `/session` on app resume and at the authorization validity boundary. Background checks preserve planner screens and drafts; an unverified plan shows a checking or unavailable label instead of retaining expired Pro state. Connectivity failures retry at a bounded interval and do not force a token refresh or log out a valid session. Admin-managed test subscriptions are sufficient until a payment system is chosen. Decide the actual paid capability policy before adding entitlement gates to currently accessible planner routes. `requireEntitlement` is implemented and tested, but extraction alone does not define a new paid feature.
 
 ## Browser login and refresh
 

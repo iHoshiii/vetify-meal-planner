@@ -25,7 +25,7 @@ const providers = [
 ] as const;
 const accountErrors: Record<string, string> = {
   'account-not-found': 'Create an account first to use the app.',
-  'account-exists': 'Account already exist. Please login.',
+  'account-exists': 'Account already exist. Please login',
 };
 
 export function LoginScreen({
