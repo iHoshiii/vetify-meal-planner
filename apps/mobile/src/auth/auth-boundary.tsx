@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -9,16 +10,26 @@ import {
 } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { introspectionSchema, type Introspection } from '@vetify/planner-shared/core-contract';
+import type { Introspection } from '@vetify/planner-shared/core-contract';
 import { Button, colors, ErrorMessage } from '../components/ui';
 import { apiFetch, ApiError } from '../services/api';
 import { getSession, subscribeSession, setAccountTimeZone } from './session';
 import { exchangeMainCode, refreshSession } from './main-auth';
 import { LoginScreen } from './login-screen';
 import { useMainAccountLink } from './use-main-account-link';
+import {
+  accountPlanLabel,
+  validateAccountPrincipal,
+  type PrincipalSnapshot,
+} from './principal-refresh';
+import { usePrincipalRefresh } from './use-principal-refresh';
 
-const PrincipalContext = createContext<Introspection | null>(null);
-export const usePrincipal = () => useContext(PrincipalContext);
+const PrincipalContext = createContext<PrincipalSnapshot | null>(null);
+export const usePrincipal = () => useContext(PrincipalContext)?.principal ?? null;
+export function useAccountPlan() {
+  const snapshot = useContext(PrincipalContext);
+  return snapshot ? accountPlanLabel(snapshot) : 'Checking plan…';
+}
 export function AuthBoundary({ children }: { children: ReactNode }) {
   const session = useSyncExternalStore(subscribeSession, getSession);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'unconnected'>('loading');
@@ -30,6 +41,16 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     code: string;
     promise: ReturnType<typeof exchangeMainCode>;
   } | null>(null);
+  const onRefusal = useCallback((error: ApiError) => {
+    setMessage(error.reason === 'login-required' ? '' : error.message);
+    setPrincipal(null);
+    setStatus(error.status === 401 ? 'unconnected' : 'error');
+  }, []);
+  const currentPrincipal = usePrincipalRefresh(
+    principal,
+    status === 'ready' && session?.user.id === principal?.user.id,
+    onRefusal,
+  );
   useEffect(() => {
     if (!link.ready) return;
     let active = true;
@@ -50,23 +71,17 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
       })
       .then((value) => {
         if (!active) return;
-        const parsed = introspectionSchema.safeParse(value);
-        if (!parsed.success)
-          throw new ApiError(503, 'The planner returned an invalid account session.');
-        if (parsed.data.user.status !== 'active')
-          throw new ApiError(403, 'This account cannot access the planner.');
-        if (parsed.data.user.id !== getSession()?.user.id)
-          throw new ApiError(503, 'The account session changed. Try again.');
+        const next = validateAccountPrincipal(value, getSession()?.user.id);
         if (active) {
-          setAccountTimeZone(parsed.data.region.timeZone);
-          setPrincipal(parsed.data);
+          setAccountTimeZone(next.region.timeZone);
+          setPrincipal(next);
           setStatus('ready');
         }
       })
       .catch((error: unknown) => {
         if (!active) return;
         if (error instanceof ApiError && error.status === 401) {
-          setMessage(error.message);
+          setMessage(error.reason === 'login-required' ? '' : error.message);
           setPrincipal(null);
           setStatus('unconnected');
         } else {
@@ -113,11 +128,11 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         }}
       />
     );
-  if (!principal || principal.user.id !== session.user.id)
+  if (!currentPrincipal || currentPrincipal.principal.user.id !== session.user.id)
     return <ActivityIndicator color={colors.primary} />;
   return (
     <AccountQueries key={session.user.id}>
-      <PrincipalContext.Provider value={principal}>{children}</PrincipalContext.Provider>
+      <PrincipalContext.Provider value={currentPrincipal}>{children}</PrincipalContext.Provider>
     </AccountQueries>
   );
 }

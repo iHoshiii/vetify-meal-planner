@@ -14,5 +14,3 @@ export async function savePet(input: PetInput, id?: string): Promise<Pet> {
   });
   return response.pet;
 }
-
-export { usePets, useCreatePet, useUpdatePet } from './pet-queries';

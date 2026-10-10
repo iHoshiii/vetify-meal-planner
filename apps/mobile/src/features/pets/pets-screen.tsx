@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { Pet, PetInput } from '@vetify/planner-shared/pets';
 import { Button, Card, ErrorMessage, colors } from '../../components/ui';
-import { usePets, useCreatePet, useUpdatePet } from '../../services/pets.service';
+import { usePets, useCreatePet, useUpdatePet } from '../../services/pet-queries';
 import { PetCard } from './pet-card';
 import { PetForm } from './pet-form';
 

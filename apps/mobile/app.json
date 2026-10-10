@@ -14,6 +14,6 @@
     "android": {
       "package": "com.vetify.mealplanner"
     },
-    "plugins": ["expo-secure-store", "expo-sharing"]
+    "plugins": ["expo-secure-store", "expo-sharing", "expo-web-browser"]
   }
 }

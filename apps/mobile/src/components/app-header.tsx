@@ -5,9 +5,11 @@ import * as Sharing from 'expo-sharing';
 import { apiFetch } from '../services/api';
 import { getSession } from '../auth/session';
 import { logout } from '../auth/main-auth';
+import { useAccountPlan } from '../auth/auth-boundary';
 import { Button, colors, ErrorMessage } from './ui';
 
 export function AppHeader() {
+  const plan = useAccountPlan();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   async function perform(action: 'export' | 'logout') {
@@ -39,7 +41,9 @@ export function AppHeader() {
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Text style={styles.brand}>Vetify Planner</Text>
-          <Text style={styles.account}>{getSession()?.user.name || getSession()?.user.email}</Text>
+          <Text style={styles.account}>
+            {getSession()?.user.name || getSession()?.user.email} · {plan}
+          </Text>
         </View>
         <Button
           label="Export"
