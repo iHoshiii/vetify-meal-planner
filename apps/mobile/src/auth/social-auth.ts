@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { nativeClientId, nativeSocialRedirectUri } from '@vetify/planner-shared/native-auth';
 import { serverUrls } from '../config';
 import { ApiError, readResponse } from '../services/api-error';
-import { beginSocialLogin } from './main-auth';
+import { beginSocialLogin, type SignInOptions } from './main-auth';
 
 export type SocialProvider = 'facebook' | 'google' | 'tiktok';
 const startSchema = z.object({ url: z.string().url() });
@@ -20,12 +20,15 @@ async function randomHex(length: number) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function loginWithSocial(provider: SocialProvider): Promise<boolean> {
+export async function loginWithSocial(
+  provider: SocialProvider,
+  options: SignInOptions = {},
+): Promise<boolean> {
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient)
     throw new Error(
       'Social login needs an installed development build or APK. Expo Go supports email and password.',
     );
-  const complete = beginSocialLogin();
+  const complete = beginSocialLogin(options);
   const verifier = await randomHex(32);
   const state = await randomHex(16);
   const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {

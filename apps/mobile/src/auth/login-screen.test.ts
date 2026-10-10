@@ -21,12 +21,14 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children: ReactNode }) => createElement('div', {}, children),
   Text: ({ children }: { children: ReactNode }) => createElement('span', {}, children),
   Pressable: ({
+    accessibilityRole,
     accessibilityLabel,
     accessibilityState,
     disabled,
     onPress,
     children,
   }: {
+    accessibilityRole?: string;
     accessibilityLabel?: string;
     accessibilityState?: { disabled?: boolean; checked?: boolean };
     disabled?: boolean;
@@ -37,7 +39,9 @@ vi.mock('react-native', () => ({
       'button',
       {
         'aria-label': accessibilityLabel,
-        'aria-pressed': accessibilityState?.checked,
+        role: accessibilityRole === 'checkbox' ? 'checkbox' : 'button',
+        'aria-checked': accessibilityRole === 'checkbox' ? accessibilityState?.checked : undefined,
+        'aria-pressed': accessibilityRole === 'checkbox' ? undefined : accessibilityState?.checked,
         disabled: disabled || accessibilityState?.disabled,
         onClick: onPress,
       },
@@ -192,10 +196,10 @@ it('logs in with the entered credentials and reports success once', async () => 
   enter('Password', 'MyPassword1!');
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
-  expect(auth.login).toHaveBeenCalledExactlyOnceWith({
-    email: 'owner@example.com',
-    password: 'MyPassword1!',
-  });
+  expect(auth.login).toHaveBeenCalledExactlyOnceWith(
+    { email: 'owner@example.com', password: 'MyPassword1!' },
+    { rememberMe: false },
+  );
   expect(auth.signup).not.toHaveBeenCalled();
 });
 
@@ -211,6 +215,38 @@ it('shows incorrect credential errors without treating the user as signed in', a
   );
   expect(onSignedIn).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Log in' }).hasAttribute('disabled')).toBe(false);
+});
+
+it('remembers an account only when the user checks Remember me', async () => {
+  const onSignedIn = vi.fn();
+  render(createElement(LoginScreen, { onSignedIn }));
+  const checkbox = screen.getByRole('checkbox', { name: 'Remember me' });
+  expect(checkbox.getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(checkbox);
+  expect(checkbox.getAttribute('aria-checked')).toBe('true');
+  enter('Email', 'owner@example.com');
+  enter('Password', 'MyPassword1!');
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+  await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
+  expect(auth.login).toHaveBeenCalledExactlyOnceWith(
+    { email: 'owner@example.com', password: 'MyPassword1!' },
+    { rememberMe: true },
+  );
+});
+
+it('applies Remember me to social login and resets it when switching to signup', async () => {
+  const onSignedIn = vi.fn();
+  render(createElement(LoginScreen, { onSignedIn }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Remember me' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Google' }));
+  await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
+  expect(auth.social).toHaveBeenCalledExactlyOnceWith('google', { rememberMe: true });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
+  expect(screen.queryByRole('checkbox', { name: 'Remember me' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+  expect(screen.getByRole('checkbox', { name: 'Remember me' }).getAttribute('aria-checked')).toBe(
+    'false',
+  );
 });
 
 it('asks an unregistered user to create an account before logging in', async () => {
@@ -313,10 +349,10 @@ it('moves from email to password with Next and logs in once with Done', async ()
   expect(auth.login).not.toHaveBeenCalled();
   pressKeyboardReturn('Password');
   await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
-  expect(auth.login).toHaveBeenCalledExactlyOnceWith({
-    email: 'owner@example.com',
-    password: 'MyPassword1!',
-  });
+  expect(auth.login).toHaveBeenCalledExactlyOnceWith(
+    { email: 'owner@example.com', password: 'MyPassword1!' },
+    { rememberMe: false },
+  );
 });
 
 it('validates signup confirmation when Done is pressed on the keyboard', () => {
@@ -454,7 +490,7 @@ it.each([
   render(createElement(LoginScreen, { onSignedIn }));
   fireEvent.click(screen.getByRole('button', { name: label }));
   await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
-  expect(auth.social).toHaveBeenCalledExactlyOnceWith(provider);
+  expect(auth.social).toHaveBeenCalledExactlyOnceWith(provider, { rememberMe: false });
   expect(auth.login).not.toHaveBeenCalled();
   expect(auth.signup).not.toHaveBeenCalled();
 });

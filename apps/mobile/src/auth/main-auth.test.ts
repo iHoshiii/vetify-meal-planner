@@ -13,7 +13,8 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: mocks.sto
 vi.mock('../config', () => ({ serverUrls: () => ({ main: 'http://localhost:5000' }) }));
 vi.mock('./auth-diagnostics', () => ({ reportAuthFailure: mocks.diagnostic }));
 
-const refreshKey = 'vetify.refresh-token';
+const refreshKey = 'vetify.remembered-refresh-token';
+const legacyRefreshKey = 'vetify.refresh-token';
 const authResponse = {
   accessToken: 'new-access-token',
   refreshToken: 'new-refresh-token',
@@ -47,6 +48,82 @@ describe('native account credentials', () => {
     });
   });
 
+  it('restores a checked Remember me session after a cold launch', async () => {
+    const first = await modules();
+    mocks.credentials.clear();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await first.login(
+      { email: 'owner@example.test', password: 'Secret123!' },
+      { rememberMe: true },
+    );
+    expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+
+    vi.resetModules();
+    const reopened = await modules();
+    expect(reopened.getSession()).toBeNull();
+    const rotated = { ...authResponse, refreshToken: 'rotated-remembered-token' };
+    mocks.fetch.mockResolvedValueOnce(response(rotated));
+    await reopened.refreshSession();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(
+      'http://localhost:5000/auth/native/refresh',
+      expect.objectContaining({
+        body: JSON.stringify({ refreshToken: authResponse.refreshToken }),
+      }),
+    );
+    expect(reopened.getSession()?.user.id).toBe('owner-a');
+    expect(mocks.credentials.get(refreshKey)).toBe(rotated.refreshToken);
+  });
+
+  it('rotates an unchecked session while open but requires login after a cold launch', async () => {
+    const first = await modules();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await first.login(
+      { email: 'owner@example.test', password: 'Secret123!' },
+      { rememberMe: false },
+    );
+    expect(mocks.credentials.size).toBe(0);
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
+
+    const rotated = { ...authResponse, refreshToken: 'rotated-memory-token' };
+    mocks.fetch.mockResolvedValueOnce(response(rotated));
+    await first.refreshSession();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(
+      'http://localhost:5000/auth/native/refresh',
+      expect.objectContaining({
+        body: JSON.stringify({ refreshToken: authResponse.refreshToken }),
+      }),
+    );
+    expect(mocks.credentials.size).toBe(0);
+    mocks.fetch.mockClear();
+
+    vi.resetModules();
+    const reopened = await modules();
+    await expect(reopened.refreshSession()).rejects.toMatchObject({
+      status: 401,
+      reason: 'login-required',
+    });
+    expect(reopened.getSession()).toBeNull();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('ignores and removes a legacy saved token without explicit Remember me consent', async () => {
+    const { refreshSession, getSession } = await modules();
+    mocks.credentials.clear();
+    mocks.credentials.set(legacyRefreshKey, 'old-unconsented-token');
+    await expect(refreshSession()).rejects.toMatchObject({ status: 401, reason: 'login-required' });
+    expect(mocks.credentials.size).toBe(0);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(getSession()).toBeNull();
+  });
+
+  it('defaults email login to memory-only and removes a previous remembered credential', async () => {
+    const { login } = await modules();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await login({ email: 'owner@example.test', password: 'Secret123!' });
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
+  });
+
   it('does not restore credentials when a refresh finishes after logout', async () => {
     const { refreshSession, logout, writeSession, getSession } = await modules();
     writeSession(authResponse);
@@ -67,6 +144,26 @@ describe('native account credentials', () => {
     await rejected;
     expect(getSession()).toBeNull();
     expect(mocks.credentials.has(refreshKey)).toBe(false);
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not revive an unchecked session when its in-memory refresh finishes after logout', async () => {
+    const { login, refreshSession, logout, getSession } = await modules();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await login({ email: 'owner@example.test', password: 'Secret123!' });
+    let finish!: (value: Response) => void;
+    mocks.fetch.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (finish = resolve)),
+    );
+    const refresh = refreshSession();
+    const rejected = expect(refresh).rejects.toMatchObject({ status: 401 });
+    await vi.waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(2));
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await logout();
+    finish(response({ ...authResponse, refreshToken: 'late-memory-token' }));
+    await rejected;
+    expect(getSession()).toBeNull();
+    expect(mocks.credentials.size).toBe(0);
     expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
   });
 
@@ -207,16 +304,16 @@ describe('native account credentials', () => {
     });
     expect(mocks.credentials.get(refreshKey)).toBe('original-refresh-token');
     expect(getSession()?.user.id).toBe('owner-a');
-    expect(mocks.secure.deleteItemAsync).not.toHaveBeenCalled();
+    expect(mocks.secure.deleteItemAsync).not.toHaveBeenCalledWith(refreshKey);
   });
 
   it('propagates credential persistence failure without signing in', async () => {
     const { login, getSession } = await modules();
     mocks.fetch.mockResolvedValueOnce(response(authResponse));
     mocks.secure.setItemAsync.mockRejectedValueOnce(new Error('Secure storage unavailable'));
-    await expect(login({ email: 'owner@example.test', password: 'Secret123!' })).rejects.toThrow(
-      'Secure storage unavailable',
-    );
+    await expect(
+      login({ email: 'owner@example.test', password: 'Secret123!' }, { rememberMe: true }),
+    ).rejects.toThrow('Secure storage unavailable');
     expect(mocks.credentials.get(refreshKey)).toBe('original-refresh-token');
     expect(getSession()).toBeNull();
   });
@@ -246,7 +343,7 @@ describe('native account credentials', () => {
               name: 'Owner',
               confirmPassword: credentials.password,
             };
-      if (action === 'login') await auth.login(credentials);
+      if (action === 'login') await auth.login(credentials, { rememberMe: true });
       else
         await auth.signup({ ...credentials, name: 'Owner', confirmPassword: credentials.password });
       expect(mocks.fetch).toHaveBeenCalledWith(
@@ -254,7 +351,9 @@ describe('native account credentials', () => {
         expect.objectContaining({ method: 'POST', body: JSON.stringify(input) }),
       );
       expect(auth.getSession()?.user.id).toBe('owner-a');
-      expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+      if (action === 'login')
+        expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+      else expect(mocks.credentials.has(refreshKey)).toBe(false);
     },
   );
 
@@ -286,7 +385,7 @@ describe('native account credentials', () => {
 
   it('stores social credentials using the native proof exchange', async () => {
     const { beginSocialLogin, getSession } = await modules();
-    const complete = beginSocialLogin();
+    const complete = beginSocialLogin({ rememberMe: true });
     mocks.fetch.mockResolvedValueOnce(response(authResponse));
     await complete('social-code', 'proof-verifier');
     expect(mocks.fetch).toHaveBeenCalledWith(
@@ -303,6 +402,41 @@ describe('native account credentials', () => {
     );
     expect(getSession()?.user.id).toBe(authResponse.user.id);
     expect(mocks.credentials.get(refreshKey)).toBe(authResponse.refreshToken);
+  });
+
+  it('keeps unchecked social login credentials only while the app is open', async () => {
+    const { beginSocialLogin, refreshSession } = await modules();
+    const complete = beginSocialLogin({ rememberMe: false });
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await complete('social-code', 'proof-verifier');
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await refreshSession();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(
+      'http://localhost:5000/auth/native/refresh',
+      expect.objectContaining({
+        body: JSON.stringify({ refreshToken: authResponse.refreshToken }),
+      }),
+    );
+  });
+
+  it('revokes the in-memory token on logout without saving it', async () => {
+    const { login, logout, refreshSession, getSession } = await modules();
+    mocks.fetch.mockResolvedValueOnce(response(authResponse));
+    await login({ email: 'owner@example.test', password: 'Secret123!' });
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await logout();
+    expect(mocks.fetch).toHaveBeenLastCalledWith(
+      'http://localhost:5000/auth/native/logout',
+      expect.objectContaining({
+        body: JSON.stringify({ refreshToken: authResponse.refreshToken }),
+      }),
+    );
+    expect(mocks.credentials.size).toBe(0);
+    expect(getSession()).toBeNull();
+    await expect(refreshSession()).rejects.toMatchObject({ status: 401, reason: 'login-required' });
+    expect(mocks.secure.setItemAsync).not.toHaveBeenCalled();
   });
 
   it('does not complete a browser login after logout changes the session', async () => {

@@ -8,8 +8,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('expo-secure-store', () => mocks.secure);
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }));
 vi.mock('../config', () => ({ serverUrls: () => ({ main: 'https://main.example/api/v1' }) }));
+vi.mock('./auth-diagnostics', () => ({ reportAuthFailure: vi.fn() }));
 
-const refreshKey = 'vetify.refresh-token';
+const refreshKey = 'vetify.remembered-refresh-token';
 const oldSession = {
   accessToken: 'old-access',
   user: { id: 'owner-a', name: 'Owner A', email: 'a@example.test', role: 'user' },
@@ -57,7 +58,7 @@ describe('main account QR handoff', () => {
       }),
     );
     expect(getSession()?.user.id).toBe('owner-b');
-    expect(mocks.credentials.get(refreshKey)).toBe(nextSession.refreshToken);
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
   });
 
   it('clears the previous identity when an expired connection code is rejected', async () => {
@@ -83,6 +84,6 @@ describe('main account QR handoff', () => {
     finish(response({ ...oldSession, refreshToken: 'late-old-refresh' }));
     await rejected;
     expect(getSession()?.user.id).toBe('owner-b');
-    expect(mocks.credentials.get(refreshKey)).toBe(nextSession.refreshToken);
+    expect(mocks.credentials.has(refreshKey)).toBe(false);
   });
 });
