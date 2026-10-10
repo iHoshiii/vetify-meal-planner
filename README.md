@@ -21,6 +21,8 @@ npm.cmd run dev:mobile:local
 
 This starts the planner MongoDB on port 27018, the planner API on 8001, the real Vetify account API on 8000 and Expo Go. Planner data persists in the ignored `.local-data/mongo` directory. The first run may download the MongoDB development binary. An existing healthy Vetify API is reused.
 
+Expo starts after the planner API reports its database is connected. If local Mongo stops, the command reports the failure and stops its own services. Ctrl+C waits for those services to exit before stopping Mongo; a database started by another command is left running.
+
 The Vetify repository must be next to this repository, with its dependencies and existing database/server configuration ready. Set `PLANNER_MAIN_ROOT` if its folder is elsewhere. Mobile startup runs Vetify's development API entry without its scheduled background jobs; it uses Vetify's existing account database. `npm.cmd run dev` starts the same services with an already running planner database, such as `npm.cmd run db:local` or Docker Compose.
 
 The Expo project lives in `apps/mobile`, so direct CLI startup from the repository root is `npx.cmd expo start apps/mobile`.
@@ -28,6 +30,8 @@ The Expo project lives in `apps/mobile`, so direct CLI startup from the reposito
 Install Expo Go on your Android phone or iPhone and connect the phone and computer to the same Wi-Fi network. Scan the terminal QR code using Expo Go on Android or the Camera app on iPhone. On iPhone, sign in to Expo Go and run `npx.cmd expo login` on the computer with the same Expo account. See [Expo's device startup instructions](https://docs.expo.dev/get-started/start-developing/).
 
 Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
+
+For the same dummy consumer account as Vetify, run `npm.cmd run seed:account` here. It creates `user@gmail.com` with password `password123` in Vetify's configured development account database. Both apps can log in with it. Repeated runs keep an existing account unchanged, and the command refuses to run in production.
 
 Facebook, Google and TikTok buttons use Vetify's configured social providers. Social sign-in requires a development build or installed APK; Expo Go supports email/password testing. The main `SERVER_URL` must be reachable from the phone, match the mobile main API origin, and have its provider callback URLs registered. TikTok can sign in an existing linked account; Vetify currently cannot create a new social account when its provider supplies no email. See [Expo's authentication guide](https://docs.expo.dev/guides/authentication/).
 
@@ -53,6 +57,8 @@ npm.cmd run dev:mobile:local
 Replace the example address with your computer's address. `npm.cmd run dev:mobile` starts only Expo when the API and account services are already running and reachable from the phone.
 
 If email/password login cannot connect, open the printed **Vetify account API** URL with `/health` appended in the phone's browser. It must return `status: ok` and `db: connected`. After updating startup scripts, stop the old stack with Ctrl+C and restart `npm.cmd run dev:mobile:local`. A running mock account service on port 8002 does not provide the mobile app's shared accounts on port 8000.
+
+On Windows, check for enabled inbound Block rules for Node.js on the active network profile. Explicit Block rules override port Allow rules. For a trusted Private Wi-Fi network, allow Node.js TCP ports 8000, 8001 and 8081 from the local subnet. See [Windows Firewall rule precedence](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/rules).
 
 Failed account requests produce development logs prefixed `[auth]` with the endpoint and failure category or HTTP status, without credentials or response bodies. To inspect a warning shown at the bottom of Expo Go, tap it for details or press `j` in the Expo terminal and open the React Native DevTools Console. See [Expo's logging instructions](https://docs.expo.dev/workflow/logging/).
 
@@ -116,6 +122,6 @@ Browser checks need Chromium installed with `npx playwright install chromium`. A
 
 ## Production integration
 
-The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Existing planner endpoints retain authenticated access until a Pro capability policy is agreed; subscription authority and paid capability policy remain separate work.
+The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Both apps use the same main account and subscription; the mobile header displays its verified Free or Pro plan and refreshes it on resume and at the authorization validity boundary. Existing planner endpoints retain authenticated access until a paid feature policy is agreed.
 
 See [main integration](docs/core-integration.md), [deployment](docs/deployment.md) and [data migration/rollback](docs/migration.md). Deploy the API with a dedicated production database and distribute the native app. The main application's QR code points to the APK download now and the app-store listings later. Real data migration, DNS changes, signed native builds and deployment remain separate operations.

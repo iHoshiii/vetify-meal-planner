@@ -1,8 +1,10 @@
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { startLocalDatabase } from './dev-database.mjs';
 import { localMainApiUrl, resolveMainService, waitForMain } from './dev-main.ts';
+import { waitForPlanner } from './dev-readiness.ts';
+import { stopChild } from './dev-cleanup.mjs';
 
 const web = process.argv.includes('--web');
 const devClient = process.argv.includes('--dev-client');
@@ -45,7 +47,13 @@ const services = [
     name: 'api',
     cwd: '.',
     args: ['node_modules/tsx/dist/cli.mjs', 'watch', 'apps/api/src/index.ts'],
-    env: web ? {} : { HOST: '0.0.0.0', AUTH_MODE: 'main', MAIN_API_URL: mainApiUrl },
+    env: {
+      ...(web ? {} : { HOST: '0.0.0.0', AUTH_MODE: 'main', MAIN_API_URL: mainApiUrl }),
+      ...(process.argv.includes('--local-db')
+        ? { PLANNER_MONGODB_URI: 'mongodb://127.0.0.1:27018/vetify_meal_planner' }
+        : {}),
+    },
+    waitForPlanner: true,
   },
   web
     ? {
@@ -62,7 +70,15 @@ const services = [
           process.argv.includes('--tunnel') ? '--tunnel' : '--lan',
           devClient ? '--dev-client' : '--go',
         ],
-        env: nativeEnv,
+        env: {
+          ...nativeEnv,
+          ...(devClient
+            ? {}
+            : {
+                EXPO_NO_REDIRECT_PAGE: '1',
+                EXPO_PUBLIC_USE_RN_FETCH: process.env.EXPO_PUBLIC_USE_RN_FETCH ?? '1',
+              }),
+        },
         interactive: true,
       },
 ];
@@ -83,10 +99,12 @@ let databaseStartup = Promise.resolve();
 async function stop(code = 0) {
   if (stopping) return;
   stopping = true;
-  for (const child of children) {
-    if (process.platform === 'win32' && child.pid) {
-      execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true });
-    } else child.kill();
+  const childStops = await Promise.allSettled(children.map(stopChild));
+  for (const result of childStops) {
+    if (result.status === 'rejected') {
+      console.error(result.reason.message);
+      code = 1;
+    }
   }
   try {
     const database = await databaseStartup.catch(() => undefined);
@@ -108,7 +126,10 @@ if (!web) {
   }
 }
 if (!stopping && process.argv.includes('--local-db')) {
-  databaseStartup = startLocalDatabase();
+  databaseStartup = startLocalDatabase((error) => {
+    console.error(`[db] ${error.message}`);
+    void stop(1);
+  });
   try {
     await databaseStartup;
   } catch (error) {
@@ -137,6 +158,14 @@ for (const service of services) {
   if (service.waitForMain) {
     try {
       await waitForMain(() => stopping, mainApiUrl);
+    } catch (error) {
+      console.error(error.message);
+      await stop(1);
+    }
+  }
+  if (!stopping && service.waitForPlanner) {
+    try {
+      await waitForPlanner(() => stopping);
     } catch (error) {
       console.error(error.message);
       await stop(1);

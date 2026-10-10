@@ -47,6 +47,7 @@
     "db:local": "tsx scripts/local-db.ts",
     "db:indexes": "tsx apps/api/src/setup-indexes.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:account": "node scripts/seed-main-account.mjs",
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
