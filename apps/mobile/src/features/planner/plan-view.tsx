@@ -1,11 +1,11 @@
 import type { MealPlan } from '@vetify/planner-shared/meal-plans';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Button, Card, Choice, ErrorMessage, colors } from '../../components/ui';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppIcon } from '../../components/app-icon';
+import { Button, Card, ErrorMessage, colors } from '../../components/ui';
 import { DailyBudget } from './daily-budget';
 import { MealLogRow } from './meal-log-row';
-import { PlanProgress } from './plan-progress';
-import { PlanWeek } from './plan-week';
+import { PlanHealthNotice } from './plan-health-notice';
 import { useDayLogs } from './use-day-logs';
 import { usePlannerToday } from './use-planner-today';
 
@@ -13,100 +13,107 @@ export function PlanView({
   plan,
   history,
   onReview,
-  onBack,
 }: {
   plan: MealPlan;
   history: MealPlan[];
   onReview: () => void;
-  onBack: () => void;
 }) {
-  const [tab, setTab] = useState('today');
   const [showHistory, setShowHistory] = useState(false);
   const today = usePlannerToday(plan.timeZone);
   const day = useDayLogs(plan, history, today);
   return (
     <View style={styles.screen}>
-      <Button label="All pets" variant="ghost" onPress={onBack} />
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Active feeding plan</Text>
-        <Text style={styles.petName}>{plan.petName}</Text>
-        <Text style={styles.summary}>
-          {plan.food.name} / {plan.preview.dailyGrams} g each day
-        </Text>
-        <Button label="Review plan" variant="secondary" onPress={onReview} />
-      </View>
-      <Choice
-        label="View schedule"
-        value={tab}
-        onChange={setTab}
-        options={[
-          { label: 'Today', value: 'today' },
-          { label: 'Week', value: 'week' },
-        ]}
-      />
-      <Text style={styles.detail}>
-        Plan version {plan.version}
-        {history.length > 1 ? ` / ${history.length - 1} previous` : ''}
-      </Text>
-      {tab === 'today' ? (
-        <View style={styles.screen}>
-          {day.isLoading && <Text style={styles.detail}>Loading feeding logs...</Text>}
-          {day.isError && (
-            <Card>
-              <ErrorMessage message="Logs could not be loaded." />
-              <Button label="Try again" variant="secondary" onPress={() => void day.refetch()} />
-            </Card>
-          )}
-          {!day.isError && !day.isLoading && (
-            <>
-              <DailyBudget plan={plan} logs={day.logs} earlier={day.earlier} />
-              {plan.mealTimes.map((_, index) => (
-                <MealLogRow
-                  key={`${plan.id}-${today}-${index}`}
-                  plan={plan}
-                  date={today}
-                  index={index}
-                  log={day.logs.find((item) => item.mealIndex === index)}
-                />
-              ))}
-            </>
-          )}
+      <View style={styles.header}>
+        <View style={styles.title}>
+          <Text accessibilityRole="header" style={styles.petName}>
+            Tracker
+          </Text>
+          <Text style={styles.summary}>
+            {today} · {plan.food.name}
+          </Text>
         </View>
-      ) : (
-        <PlanWeek plan={plan} today={today} />
-      )}
-      <PlanProgress key={plan.id} plan={plan} today={today} onReview={onReview} />
-      {history.length > 1 && (
-        <Card>
-          <Button
-            label={showHistory ? 'Hide previous plans' : 'Previous plans'}
-            variant="ghost"
-            onPress={() => setShowHistory(!showHistory)}
-          />
-          {showHistory &&
-            history.slice(1).map((item) => (
+        <Button
+          label="Review"
+          icon={<AppIcon name="edit" size={15} color={colors.primary} />}
+          variant="ghost"
+          compact
+          onPress={onReview}
+        />
+      </View>
+      <View style={styles.screen}>
+        {day.isLoading && <Text style={styles.detail}>Loading feeding logs...</Text>}
+        {day.isError && (
+          <Card>
+            <ErrorMessage message="Logs could not be loaded." />
+            <Button label="Try again" variant="secondary" onPress={() => void day.refetch()} />
+          </Card>
+        )}
+        {!day.isError && !day.isLoading && (
+          <>
+            <DailyBudget plan={plan} logs={day.logs} earlier={day.earlier} />
+            {plan.mealTimes.map((_, index) => (
+              <MealLogRow
+                key={`${plan.id}-${today}-${index}`}
+                plan={plan}
+                date={today}
+                index={index}
+                log={day.logs.find((item) => item.mealIndex === index)}
+              />
+            ))}
+          </>
+        )}
+      </View>
+      <PlanHealthNotice plan={plan} today={today} onReview={onReview} />
+      <Card>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showHistory }}
+          onPress={() => setShowHistory(!showHistory)}
+          style={styles.historyToggle}
+        >
+          <View style={styles.title}>
+            <Text style={styles.historyTitle}>Plan history</Text>
+            <Text style={styles.detail}>Version {plan.version}</Text>
+          </View>
+          <View style={showHistory && styles.expandedChevron}>
+            <AppIcon name="chevron-right" size={18} color={colors.muted} />
+          </View>
+        </Pressable>
+        {showHistory && (
+          <View style={styles.historyList}>
+            <View style={styles.history}>
+              <Text style={styles.historyTitle}>Version {plan.version} · Current</Text>
+              <Text style={styles.detail}>
+                {plan.preview.dailyGrams} g/day · {plan.createdAt.slice(0, 10)}
+              </Text>
+            </View>
+            {history.slice(1).map((item) => (
               <View key={item.id} style={styles.history}>
                 <Text style={styles.historyTitle}>
-                  Version {item.version} / {item.food.name}
+                  Version {item.version} · {item.food.name}
                 </Text>
                 <Text style={styles.detail}>
-                  {item.preview.dailyGrams} g/day / {item.createdAt.slice(0, 10)}
+                  {item.preview.dailyGrams} g/day · {item.createdAt.slice(0, 10)}
                 </Text>
               </View>
             ))}
-        </Card>
-      )}
+          </View>
+        )}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { gap: 16 },
-  hero: { backgroundColor: colors.primary, borderRadius: 24, padding: 24, gap: 12 },
-  eyebrow: { color: '#d9eee5', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-  petName: { color: colors.white, fontSize: 32, fontWeight: '800' },
-  summary: { color: colors.white, fontSize: 15, lineHeight: 22 },
+  screen: { gap: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { flex: 1, gap: 4 },
+  petName: { color: colors.ink, fontSize: 24, fontWeight: '700' },
+  summary: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   detail: { color: colors.muted, fontSize: 13 },
-  history: { gap: 6, paddingTop: 12, borderTopColor: colors.border, borderTopWidth: 1 },
-  historyTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  historyToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  expandedChevron: { transform: [{ rotate: '90deg' }] },
+  historyList: { gap: 12 },
+  history: { gap: 5, paddingTop: 12, borderTopColor: colors.border, borderTopWidth: 1 },
+  historyTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
 });

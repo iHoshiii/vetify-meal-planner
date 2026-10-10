@@ -29,7 +29,7 @@ The Expo project lives in `apps/mobile`, so direct CLI startup from the reposito
 
 Install Expo Go on your Android phone or iPhone and connect the phone and computer to the same Wi-Fi network. Scan the terminal QR code using Expo Go on Android or the Camera app on iPhone. On iPhone, sign in to Expo Go and run `npx.cmd expo login` on the computer with the same Expo account. See [Expo's device startup instructions](https://docs.expo.dev/get-started/start-developing/).
 
-Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
+Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. Check **Remember me** to stay signed in after closing and reopening the app; leave it unchecked to require login after a full restart. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
 
 For the same dummy consumer account as Vetify, run `npm.cmd run seed:account` here. It creates `user@gmail.com` with password `password123` in Vetify's configured development account database. Both apps can log in with it. Repeated runs keep an existing account unchanged, and the command refuses to run in production.
 
@@ -82,10 +82,13 @@ The app/API `.env.example` files describe configuration. Configure environment v
 ## Features
 
 - Multiple pet profiles with separate ownership, age provenance and nutrition observations.
+- A selected pet in the mobile header, with a pet switcher and separate user account actions for Pets, Export my data and Log out.
+- Mobile Foods, Tracker and Progress tabs: saved packaged-food labels, daily feeding logs and monthly recorded progress.
+- Custom food labels stored per pet and available during meal-plan setup. Built-in catalog entries can be added to `packages/shared/src/foods.ts` after verifying their package calories, species, life stage and label source. The initial catalog is empty.
 - Existing-amount schedules and starting portion estimates for eligible adult pets.
 - Guided setup, calorie-label conversion, server preview, explicit save and version history.
-- Today/week schedules, feeding and extras logs, daily calorie budget and review prompts.
-- Native Android and iOS screens with secure session storage. Auth and feeding writes require connectivity.
+- Feeding and extras logs, daily calorie budget and review prompts. Monthly progress preserves historical food density and plan versions; missing intake stays unknown.
+- Native Android and iOS screens with optional secure session storage. Auth and feeding writes require connectivity.
 - The browser client remains an installable PWA with a static offline shell.
 - Owner-scoped export and dry-run-first database migration tools.
 
@@ -122,6 +125,6 @@ Browser checks need Chromium installed with `npx playwright install chromium`. A
 
 ## Production integration
 
-The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Both apps use the same main account and subscription; the mobile header displays its verified Free or Pro plan and refreshes it on resume and at the authorization validity boundary. Existing planner endpoints retain authenticated access until a paid feature policy is agreed.
+The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Both apps use the same main account and subscription; the mobile Account screen displays its verified Free or Pro plan and refreshes it on resume and at the authorization validity boundary. Existing planner endpoints retain authenticated access until a paid feature policy is agreed.
 
 See [main integration](docs/core-integration.md), [deployment](docs/deployment.md) and [data migration/rollback](docs/migration.md). Deploy the API with a dedicated production database and distribute the native app. The main application's QR code points to the APK download now and the app-store listings later. Real data migration, DNS changes, signed native builds and deployment remain separate operations.

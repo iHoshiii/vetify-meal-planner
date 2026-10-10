@@ -21,14 +21,23 @@ export function DailyBudget({
   const progress = target ? Math.min(100, Math.max(0, (consumed / target) * 100)) : 0;
   return (
     <Card>
-      <Text style={styles.label}>Today's intake</Text>
-      <Text style={styles.balance} accessibilityLiveRegion="polite">
-        {left === null
-          ? 'No target'
-          : `${Math.round(Math.abs(left))} ${unit} ${left < 0 ? 'over' : 'left'}`}
-      </Text>
-      <Text style={styles.detail}>
-        {Math.round(consumed)} / {target === null ? '?' : Math.round(target)} {unit}
+      <View style={styles.header}>
+        <Text style={styles.label}>Daily intake</Text>
+        <Text
+          style={[styles.balance, left !== null && left < 0 && styles.over]}
+          accessibilityLiveRegion="polite"
+        >
+          {left === null
+            ? 'Target unavailable'
+            : `${Math.round(Math.abs(left))} ${unit} ${left < 0 ? 'over' : 'left'}`}
+        </Text>
+      </View>
+      <Text style={styles.amount}>
+        {Math.round(consumed)}
+        <Text style={styles.target}>
+          {' '}
+          / {target === null ? '?' : Math.round(target)} {unit}
+        </Text>
       </Text>
       <View
         style={styles.track}
@@ -47,6 +56,14 @@ export function DailyBudget({
           ]}
         />
       </View>
+      {exact && (
+        <View style={styles.foodSummary}>
+          <Text style={styles.detail}>{Math.round(intake.gramsEaten)} g food logged</Text>
+          {plan.preview.dailyGrams !== null && (
+            <Text style={styles.detail}>{plan.preview.dailyGrams} g/day planned</Text>
+          )}
+        </View>
+      )}
       {!exact && (
         <Text style={styles.hint}>Calorie balance needs a food label and known extras.</Text>
       )}
@@ -55,10 +72,15 @@ export function DailyBudget({
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.primary, fontSize: 13, fontWeight: '700' },
-  balance: { color: colors.ink, fontSize: 30, fontWeight: '800' },
-  detail: { color: colors.muted, fontSize: 14 },
-  track: { height: 10, borderRadius: 5, backgroundColor: colors.background, overflow: 'hidden' },
-  fill: { height: 10, borderRadius: 5 },
-  hint: { color: colors.muted, fontSize: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  label: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  balance: { color: colors.primary, fontSize: 12, fontWeight: '600' },
+  over: { color: '#9a6700' },
+  amount: { color: colors.ink, fontSize: 27, fontWeight: '700' },
+  target: { color: colors.muted, fontSize: 14, fontWeight: '400' },
+  detail: { color: colors.muted, fontSize: 12 },
+  foodSummary: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 },
+  track: { height: 6, borderRadius: 3, backgroundColor: colors.background, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
+  hint: { color: colors.muted, fontSize: 12, lineHeight: 18 },
 });

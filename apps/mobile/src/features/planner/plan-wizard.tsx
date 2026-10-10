@@ -3,6 +3,7 @@ import type { Pet } from '@vetify/planner-shared/pets';
 import { useEffect } from 'react';
 import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, colors, ErrorMessage, Notice } from '../../components/ui';
+import { useScreenActive } from '../../components/screen-activity';
 import { FoodFields } from './plan-food-fields';
 import { HealthFields } from './plan-health-fields';
 import { PlanReview } from './plan-review';
@@ -22,6 +23,7 @@ export function PlanWizard({
   onCancel: () => void;
   onSaved: (plan: MealPlan) => void;
 }) {
+  const active = useScreenActive();
   const {
     input,
     step,
@@ -39,6 +41,7 @@ export function PlanWizard({
   } = usePlanWizard(pet, existingPlan, onSaved);
 
   useEffect(() => {
+    if (!active) return;
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!busy) {
         if (step > 0) back();
@@ -47,16 +50,18 @@ export function PlanWizard({
       return true;
     });
     return () => listener.remove();
-  }, [step, busy, back, onCancel]);
+  }, [active, step, busy, back, onCancel]);
 
   return (
     <Card>
       <View style={styles.header}>
         <View style={styles.title}>
-          <Text style={styles.kicker}>Step {step + 1} of 4</Text>
-          <Text style={styles.heading}>Plan meals for {pet.name}</Text>
+          <Text style={styles.heading}>{existingPlan ? 'Review plan' : 'New meal plan'}</Text>
+          <Text style={styles.kicker}>
+            {pet.name} · Step {step + 1} of 4
+          </Text>
         </View>
-        <Button label="Close" variant="ghost" onPress={onCancel} disabled={busy} />
+        <Button label="Close" variant="ghost" compact onPress={onCancel} disabled={busy} />
       </View>
       <View accessibilityLabel="Plan progress" style={styles.progress}>
         {steps.map((name, index) => (
@@ -79,34 +84,41 @@ export function PlanWizard({
       {draftError ? <Notice tone="warning">{draftError}</Notice> : null}
       <ErrorMessage message={error} />
       <View style={styles.actions}>
-        {step > 0 && <Button label="Back" variant="secondary" disabled={busy} onPress={back} />}
-        {step < 3 ? (
-          <Button
-            label={checking ? 'Checking...' : 'Next'}
-            disabled={loading || busy}
-            onPress={() => void next()}
-          />
-        ) : (
-          <Button
-            label={saving ? 'Saving...' : 'Save plan'}
-            disabled={busy || !preview || preview.blockers.length > 0}
-            onPress={save}
-          />
+        {step > 0 && (
+          <View style={styles.action}>
+            <Button label="Back" variant="secondary" disabled={busy} onPress={back} />
+          </View>
         )}
+        <View style={styles.action}>
+          {step < 3 ? (
+            <Button
+              label={checking ? 'Checking...' : 'Next'}
+              disabled={loading || busy}
+              onPress={() => void next()}
+            />
+          ) : (
+            <Button
+              label={saving ? 'Saving...' : 'Save plan'}
+              disabled={busy || !preview || preview.blockers.length > 0}
+              onPress={save}
+            />
+          )}
+        </View>
       </View>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title: { flex: 1, gap: 6 },
-  kicker: { color: colors.primary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-  heading: { color: colors.ink, fontSize: 23, fontWeight: '800' },
-  subheading: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  content: { gap: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  title: { flex: 1, gap: 4 },
+  kicker: { color: colors.muted, fontSize: 12 },
+  heading: { color: colors.ink, fontSize: 21, fontWeight: '700' },
+  subheading: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  content: { gap: 14 },
   progress: { flexDirection: 'row', gap: 6 },
-  segment: { height: 5, borderRadius: 4, backgroundColor: colors.border, flex: 1 },
+  segment: { height: 3, borderRadius: 3, backgroundColor: colors.border, flex: 1 },
   active: { backgroundColor: colors.primary },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 8 },
+  actions: { flexDirection: 'row', gap: 10, paddingTop: 4 },
+  action: { flex: 1 },
 });
