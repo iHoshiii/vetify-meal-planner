@@ -1,5 +1,6 @@
 import type { Db } from 'mongodb';
 import { PETS_COLLECTION, PET_INDEXES } from '../models/pets.js';
+import { SAVED_FOODS_COLLECTION, FOOD_INDEXES } from '../models/foods.js';
 import { MEAL_PLANS_COLLECTION, MEAL_PLAN_INDEXES } from '../models/meal-plans.js';
 import { FEEDING_LOGS_COLLECTION, FEEDING_LOG_INDEXES } from '../models/feeding-logs.js';
 import {
@@ -10,6 +11,7 @@ import {
 export async function ensureIndexes(db: Db) {
   const plan = [
     { collection: PETS_COLLECTION, indexes: PET_INDEXES },
+    { collection: SAVED_FOODS_COLLECTION, indexes: FOOD_INDEXES },
     { collection: MEAL_PLANS_COLLECTION, indexes: MEAL_PLAN_INDEXES },
     { collection: FEEDING_LOGS_COLLECTION, indexes: FEEDING_LOG_INDEXES },
     { collection: NUTRITION_OBSERVATIONS_COLLECTION, indexes: NUTRITION_OBSERVATION_INDEXES },

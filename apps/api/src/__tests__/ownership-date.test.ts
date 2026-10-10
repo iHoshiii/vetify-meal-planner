@@ -35,6 +35,7 @@ describe('standalone planner data boundaries', () => {
       'meal_plans',
       'nutrition_observations',
       'pets',
+      'saved_foods',
     ]);
   });
   it('applies account calendar dates at opposing timezone boundaries', async () => {
