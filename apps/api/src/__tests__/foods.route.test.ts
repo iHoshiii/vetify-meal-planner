@@ -1,4 +1,5 @@
-import type { FoodLabel } from '@vetify/planner-shared/foods';
+import { defaultFoodDetails, type FoodLabel } from '@vetify/planner-shared/foods';
+import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
 import { ObjectId } from 'mongodb';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -31,19 +32,52 @@ async function foodFor(token: string, petId: string, changes: Partial<FoodLabel>
   return created.body.food;
 }
 
-describe('packaged food library', () => {
-  it('starts with an empty catalog and stores, edits and removes the selected pet food', async () => {
+describe('pet food library', () => {
+  it('keeps the dog defaults out of cat and other-species libraries while retaining their custom foods', async () => {
+    const token = await account();
+    const dogId = await petFor(token);
+    for (const species of ['cat', 'other'] as const) {
+      const created = await request(app)
+        .post('/api/v1/pets')
+        .auth(token, { type: 'bearer' })
+        .send({
+          ...petInput,
+          name: species === 'cat' ? 'Nori' : 'Clover',
+          species,
+          breed: '',
+          otherSpecies: species === 'other' ? 'Rabbit' : '',
+        });
+      expect(created.status).toBe(201);
+      const petId = created.body.pet.id as string;
+      const saved = await foodFor(token, petId, { name: `Custom ${species} food`, species });
+      const listed = await request(app)
+        .get(`/api/v1/foods?petId=${petId}`)
+        .auth(token, { type: 'bearer' });
+      expect(listed.status).toBe(200);
+      expect(listed.body.catalog).toEqual([]);
+      expect(listed.body.foods).toEqual([saved]);
+    }
+    const dogLibrary = await request(app)
+      .get(`/api/v1/foods?petId=${dogId}`)
+      .auth(token, { type: 'bearer' });
+    expect(dogLibrary.status).toBe(200);
+    expect(dogLibrary.body.catalog).toEqual(defaultIngredientCatalog);
+    expect(dogLibrary.body.foods).toEqual([]);
+  });
+
+  it('includes the ingredient catalog and stores, edits and removes the selected pet food', async () => {
     const token = await account();
     const petId = await petFor(token);
     const empty = await request(app)
       .get(`/api/v1/foods?petId=${petId}`)
       .auth(token, { type: 'bearer' });
     expect(empty.status).toBe(200);
-    expect(empty.body).toEqual({ foods: [], catalog: [] });
+    expect(empty.body).toEqual({ foods: [], catalog: defaultIngredientCatalog });
 
     const saved = await foodFor(token, petId);
     expect(saved.petId).toBe(petId);
     expect(saved.food.calories).toBe(3500);
+    expect(saved.details).toEqual(defaultFoodDetails());
     expect(saved).not.toHaveProperty('ownerId');
     expect(saved.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     const revisedFood = {
@@ -75,6 +109,124 @@ describe('packaged food library', () => {
       (await request(app).get(`/api/v1/foods?petId=${petId}`).auth(token, { type: 'bearer' })).body
         .foods,
     ).toEqual([]);
+  });
+
+  it('saves custom ingredient nutrition and notes, keeps them on older-client edits and exports them', async () => {
+    const token = await account();
+    const petId = await petFor(token);
+    const ingredient = defaultIngredientCatalog[0]!;
+    const details = { ...ingredient.details, notes: 'My plain cooked batch.' };
+    const created = await request(app)
+      .post('/api/v1/foods')
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: ingredient.food, details });
+    expect(created.status).toBe(201);
+    expect(created.body.food.details).toEqual(details);
+    const foodId = created.body.food.id as string;
+
+    const edited = await request(app)
+      .put(`/api/v1/foods/${foodId}`)
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: { ...ingredient.food, name: 'My cooked chicken' } });
+    expect(edited.status).toBe(200);
+    expect(edited.body.food.details).toEqual(details);
+    const revisedDetails = {
+      ...details,
+      nutritionPer100g: { ...details.nutritionPer100g, kcal: 170 },
+    };
+    const revised = await request(app)
+      .put(`/api/v1/foods/${foodId}`)
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: edited.body.food.food, details: revisedDetails });
+    expect(revised.status).toBe(200);
+    expect(revised.body.food.details).toEqual(revisedDetails);
+    const exported = await request(app).get('/api/v1/export').auth(token, { type: 'bearer' });
+    expect(exported.body.saved_foods[0].details).toEqual(revisedDetails);
+    expect(exported.body.saved_foods[0].food.calories).toBeNull();
+  });
+
+  it('resolves pre-metadata food records as packaged and preserves them on edit', async () => {
+    const token = await account();
+    const petId = await petFor(token);
+    const saved = await foodFor(token, petId);
+    await getDb()
+      .collection(SAVED_FOODS_COLLECTION)
+      .updateOne({ _id: new ObjectId(saved.id) }, { $unset: { details: '' } });
+    const listed = await request(app)
+      .get(`/api/v1/foods?petId=${petId}`)
+      .auth(token, { type: 'bearer' });
+    expect(listed.body.foods[0].details).toEqual(defaultFoodDetails());
+    const edited = await request(app)
+      .put(`/api/v1/foods/${saved.id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: { ...saved.food, name: 'Edited legacy package' } });
+    expect(edited.status).toBe(200);
+    expect(edited.body.food.details).toEqual(defaultFoodDetails());
+  });
+
+  it('cannot relabel an ingredient as packaged or promote it using an older input without details', async () => {
+    const token = await account();
+    const petId = await petFor(token);
+    const ingredient = defaultIngredientCatalog[0]!;
+    const created = await request(app)
+      .post('/api/v1/foods')
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: ingredient.food, details: ingredient.details });
+    expect(created.status).toBe(201);
+    const id = created.body.food.id as string;
+    const relabeled = await request(app)
+      .put(`/api/v1/foods/${id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: ingredient.food, details: defaultFoodDetails() });
+    expect(relabeled.status).toBe(400);
+    for (const promotion of [{ adequacy: 'complete' }, { calories: 1650 }]) {
+      const response = await request(app)
+        .put(`/api/v1/foods/${id}`)
+        .auth(token, { type: 'bearer' })
+        .send({ petId, food: { ...ingredient.food, ...promotion } });
+      expect(response.status).toBe(400);
+    }
+    const packaged = await foodFor(token, petId);
+    const converted = await request(app)
+      .put(`/api/v1/foods/${packaged.id}`)
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: ingredient.food, details: ingredient.details });
+    expect(converted.status).toBe(400);
+  });
+
+  it('rejects invalid custom nutrition and complete-ingredient claims without saving', async () => {
+    const token = await account();
+    const petId = await petFor(token);
+    const ingredient = defaultIngredientCatalog[0]!;
+    const input = { petId, food: ingredient.food, details: ingredient.details };
+    const invalid = [
+      { ...input, details: { ...input.details, notes: 'x'.repeat(501) } },
+      { ...input, details: { ...input.details, ownerId: 'another-owner' } },
+      {
+        ...input,
+        details: {
+          ...input.details,
+          nutritionPer100g: { kcal: 50, proteinG: 80, fatG: 30, carbsG: null },
+        },
+      },
+      {
+        ...input,
+        details: {
+          ...input.details,
+          nutritionPer100g: { ...input.details.nutritionPer100g, kcal: -1 },
+        },
+      },
+      { ...input, food: { ...input.food, adequacy: 'complete' } },
+      { ...input, food: { ...input.food, calories: 1650 } },
+    ];
+    for (const body of invalid) {
+      const response = await request(app)
+        .post('/api/v1/foods')
+        .auth(token, { type: 'bearer' })
+        .send(body);
+      expect(response.status).toBe(400);
+    }
+    expect(await getDb().collection(SAVED_FOODS_COLLECTION).countDocuments()).toBe(0);
   });
 
   it('keeps the same owner pets separate and refuses to move a food to another pet', async () => {

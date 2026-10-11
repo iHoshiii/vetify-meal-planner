@@ -1,8 +1,11 @@
 import {
+  defaultFoodDetails,
+  filterFoodCatalogForSpecies,
   packagedFoodCatalog,
   savedFoodInputSchema,
   type SavedFoodInput,
 } from '@vetify/planner-shared/foods';
+import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { validate } from '../../middleware/validate.js';
@@ -25,8 +28,15 @@ router.get('/', async (req, res) => {
   if (!isValidObjectId(req.query.petId)) return fail(res, 400, 'Choose a pet');
   const ownerId = actorOf(req).id;
   const petId = new ObjectId(req.query.petId);
-  if (!(await findPet(ownerId, petId))) return fail(res, 404, 'Pet not found');
-  return ok(res, { foods: await listSavedFoods(ownerId, petId), catalog: packagedFoodCatalog });
+  const pet = await findPet(ownerId, petId);
+  if (!pet) return fail(res, 404, 'Pet not found');
+  return ok(res, {
+    foods: await listSavedFoods(ownerId, petId),
+    catalog: filterFoodCatalogForSpecies(
+      [...defaultIngredientCatalog, ...packagedFoodCatalog],
+      pet.species,
+    ),
+  });
 });
 
 router.post('/', validate(savedFoodInputSchema), async (req, res) => {
@@ -36,7 +46,12 @@ router.post('/', validate(savedFoodInputSchema), async (req, res) => {
   if (!(await findPet(ownerId, petId))) return fail(res, 404, 'Pet not found');
   if (input.food.labelCheckedOn && input.food.labelCheckedOn > accountToday(req))
     return fail(res, 400, 'The label check date cannot be in the future.');
-  const food = await createSavedFood(ownerId, petId, input.food);
+  const food = await createSavedFood(
+    ownerId,
+    petId,
+    input.food,
+    input.details ?? defaultFoodDetails(),
+  );
   return ok(res, { food }, 201);
 });
 
@@ -46,9 +61,23 @@ router.put('/:id', validate(savedFoodInputSchema), async (req, res) => {
   const input = req.body as SavedFoodInput;
   const petId = new ObjectId(input.petId);
   if (!(await findPet(ownerId, petId))) return fail(res, 404, 'Pet not found');
+  const previous = await findSavedFood(ownerId, new ObjectId(req.params.id));
+  if (!previous || previous.petId !== petId.toHexString()) return fail(res, 404, 'Food not found');
+  if (input.details && input.details.kind !== previous.details.kind)
+    return fail(res, 400, 'The food type cannot change. Add a new food instead.');
+  const details = input.details ?? previous.details;
+  const resolved = savedFoodInputSchema.safeParse({ ...input, details });
+  if (!resolved.success)
+    return fail(res, 400, 'Invalid food details.', resolved.error.flatten().fieldErrors);
   if (input.food.labelCheckedOn && input.food.labelCheckedOn > accountToday(req))
     return fail(res, 400, 'The label check date cannot be in the future.');
-  const food = await updateSavedFood(ownerId, petId, new ObjectId(req.params.id), input.food);
+  const food = await updateSavedFood(
+    ownerId,
+    petId,
+    new ObjectId(req.params.id),
+    input.food,
+    details,
+  );
   if (!food) return fail(res, 404, 'Food not found');
   return ok(res, { food });
 });

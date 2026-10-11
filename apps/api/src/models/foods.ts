@@ -1,4 +1,9 @@
-import type { FoodLabel, SavedFood } from '@vetify/planner-shared/foods';
+import {
+  defaultFoodDetails,
+  type FoodDetails,
+  type FoodLabel,
+  type SavedFood,
+} from '@vetify/planner-shared/foods';
 import { ObjectId, type Collection, type IndexDescription } from 'mongodb';
 import { getDb } from '../config/db.js';
 
@@ -10,6 +15,7 @@ type SavedFoodDocument = {
   ownerId: string;
   petId: ObjectId;
   food: FoodLabel;
+  details?: FoodDetails;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -23,6 +29,7 @@ function view(doc: SavedFoodDocument): SavedFood {
     id: doc._id.toHexString(),
     petId: doc.petId.toHexString(),
     food: doc.food,
+    details: doc.details ?? defaultFoodDetails(),
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -42,6 +49,7 @@ export async function createSavedFood(
   ownerId: string,
   petId: ObjectId,
   food: FoodLabel,
+  details: FoodDetails = defaultFoodDetails(),
 ): Promise<SavedFood> {
   const now = new Date();
   const doc: SavedFoodDocument = {
@@ -49,6 +57,7 @@ export async function createSavedFood(
     ownerId,
     petId,
     food,
+    details,
     createdAt: now,
     updatedAt: now,
   };
@@ -61,10 +70,11 @@ export async function updateSavedFood(
   petId: ObjectId,
   id: ObjectId,
   food: FoodLabel,
+  details?: FoodDetails,
 ): Promise<SavedFood | null> {
   const doc = await collection().findOneAndUpdate(
     { _id: id, ownerId, petId },
-    { $set: { food, updatedAt: new Date() } },
+    { $set: { food, updatedAt: new Date(), ...(details ? { details } : {}) } },
     { returnDocument: 'after' },
   );
   return doc ? view(doc) : null;
