@@ -1,5 +1,7 @@
 import type { FeedingLog, MealPlan } from '@vetify/planner-shared/meal-plans';
 import type { NutritionObservation } from '@vetify/planner-shared/nutrition-observations';
+import type { DietEntry } from '@vetify/planner-shared/daily-diet';
+import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
 import {
   progressMonthDates,
   summarizeMonthlyProgress,
@@ -41,6 +43,7 @@ function summary(
   plans = [plan()],
   logs: FeedingLog[] = [],
   measurements: NutritionObservation[] = [],
+  foodEntries: DietEntry[] = [],
 ) {
   return summarizeMonthlyProgress({
     petId,
@@ -50,7 +53,27 @@ function summary(
     plans,
     logs,
     measurements,
+    foodEntries,
   });
+}
+
+function foodEntry(overrides: Partial<DietEntry> = {}): DietEntry {
+  const chicken = defaultIngredientCatalog[0]!;
+  return {
+    id: 'food-entry-1',
+    requestId: '12345678-1234-1234-1234-123456789abc',
+    petId,
+    date: '2026-10-03',
+    source: 'catalog',
+    foodId: chicken.id,
+    grams: 50,
+    timeZone: 'Asia/Manila',
+    food: chicken.food,
+    details: chicken.details,
+    nutrition: { kcal: 82.5, proteinG: 15.5, fatG: 1.8, carbsG: 0 },
+    createdAt: '2026-10-03T00:00:00.000Z',
+    ...overrides,
+  };
 }
 
 describe('monthly feeding summaries', () => {
@@ -211,5 +234,84 @@ describe('monthly feeding summaries', () => {
   it('derives legacy manual targets from the saved food label without changing intake', () => {
     const saved = plan({ preview: { ...plan().preview, dailyKcal: null } });
     expect(summary([saved], [log()]).days[2]).toMatchObject({ targetKcal: 250, kcal: 100 });
+  });
+
+  it('adds food snapshots once alongside plan meals without creating a plan association', () => {
+    const portion = foodEntry();
+    const result = summary([plan()], [log()], [], [portion, portion]);
+    expect(result.days[2]).toMatchObject({
+      status: 'recorded',
+      mealsLogged: 1,
+      foodsLogged: 1,
+      kcal: 182.5,
+      grams: 90,
+      targetKcal: 250,
+    });
+    expect(result.days[2].foodEntries).toEqual([portion]);
+    expect(result.days[2].entries).toHaveLength(1);
+    expect(result.days[2].foodEntries[0]).not.toHaveProperty('planId');
+    expect(result.summary).toMatchObject({
+      recordedDays: 1,
+      loggedMeals: 1,
+      loggedFoods: 1,
+      knownLoggedKcal: 182.5,
+      loggedGrams: 90,
+    });
+    expect(portion.nutrition.kcal).toBe(82.5);
+  });
+
+  it('records a food-only day without an active plan and retains incomplete calorie totals', () => {
+    const known = foodEntry();
+    const unknown = foodEntry({
+      id: 'food-entry-2',
+      date: '2026-10-04',
+      nutrition: { kcal: null, proteinG: null, fatG: 0, carbsG: null },
+    });
+    const result = summary([], [], [], [known, unknown]);
+    expect(result.days[2]).toMatchObject({
+      status: 'recorded',
+      mealsLogged: 0,
+      foodsLogged: 1,
+      grams: 50,
+      kcal: 82.5,
+      targetKcal: null,
+      targetPlanId: null,
+    });
+    expect(result.days[3]).toMatchObject({ status: 'recorded', grams: 50, kcal: null });
+    expect(result.summary).toMatchObject({
+      recordedDays: 2,
+      loggedMeals: 0,
+      loggedFoods: 2,
+      knownCalorieDays: 1,
+      unknownCalorieDays: 1,
+      knownLoggedKcal: 82.5,
+      loggedGrams: 100,
+    });
+    expect(summary([], [], [], [known, { ...unknown, date: known.date }]).days[2].kcal).toBeNull();
+  });
+
+  it('keeps food history on its saved civil date and excludes foreign, off-month and future portions', () => {
+    const recorded = foodEntry({
+      timeZone: 'Pacific/Kiritimati',
+      createdAt: '2026-10-02T12:30:00.000Z',
+    });
+    const result = summary(
+      [],
+      [],
+      [],
+      [
+        recorded,
+        foodEntry({ id: 'foreign', petId: 'pet-2' }),
+        foodEntry({ id: 'past-month', date: '2026-09-30' }),
+        foodEntry({ id: 'future', date: '2026-10-11' }),
+      ],
+    );
+    expect(result.days[2].foodEntries).toEqual([recorded]);
+    expect(result.days[10]).toMatchObject({ status: 'future', kcal: null, foodsLogged: 0 });
+    expect(result.summary).toMatchObject({
+      recordedDays: 1,
+      loggedFoods: 1,
+      knownLoggedKcal: 82.5,
+    });
   });
 });

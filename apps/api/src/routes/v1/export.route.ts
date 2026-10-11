@@ -11,6 +11,8 @@ router.get('/', async (req, res) => {
     'feeding_logs',
     'nutrition_observations',
     'saved_foods',
+    'diet_entries',
+    'diet_assessments',
   ] as const;
   const entries = await Promise.all(
     names.map(

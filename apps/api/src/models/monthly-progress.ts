@@ -6,6 +6,7 @@ import { getDb } from '../config/db.js';
 import { MEAL_PLANS_COLLECTION } from './meal-plans.js';
 import { FEEDING_LOGS_COLLECTION } from './feeding-logs.js';
 import { NUTRITION_OBSERVATIONS_COLLECTION } from './nutrition-observations.js';
+import { listDietEntriesInRange } from './diet-entries.js';
 
 type StoredPlan = Omit<MealPlan, 'id' | 'petId' | 'activeFrom' | 'endedAt' | 'createdAt'> & {
   _id: ObjectId;
@@ -53,7 +54,7 @@ export async function monthlyProgressRecords(
     .sort({ version: -1 })
     .toArray();
   const until = last < today ? last : today;
-  const [logDocs, observationDocs] = await Promise.all([
+  const [logDocs, observationDocs, foodEntries] = await Promise.all([
     db
       .collection<StoredLog>(FEEDING_LOGS_COLLECTION)
       .find({
@@ -72,6 +73,7 @@ export async function monthlyProgressRecords(
       })
       .sort({ measuredOn: -1, createdAt: -1 })
       .toArray(),
+    listDietEntriesInRange(ownerId, petId, first, until),
   ]);
   const plans: MealPlan[] = planDocs.map(
     ({ _id, petId: storedPet, activeFrom, endedAt, createdAt, ...fields }) => ({
@@ -99,5 +101,5 @@ export async function monthlyProgressRecords(
       createdAt: createdAt.toISOString(),
     }),
   );
-  return { plans, logs, measurements };
+  return { plans, logs, measurements, foodEntries };
 }

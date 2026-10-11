@@ -1,4 +1,6 @@
 import request from 'supertest';
+import { randomUUID } from 'node:crypto';
+import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
 import { ObjectId } from 'mongodb';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
@@ -233,6 +235,162 @@ describe('monthly progress', () => {
       petId,
       measuredOn: first,
       weightKg: 6.2,
+    });
+  });
+
+  it('combines food snapshots and plan meals once, includes food-only history, and reverses deletions', async () => {
+    const token = await account();
+    const petId = await makePet(token);
+    const otherPet = await makePet(token);
+    const planId = await makePlan(token, petId);
+    await getDb()
+      .collection('meal_plans')
+      .updateOne(
+        { _id: new ObjectId(planId) },
+        { $set: { activeFrom: new Date(`${first}T00:00:00.000Z`) } },
+      );
+    expect(
+      (
+        await request(app)
+          .put(`/api/v1/meal-plans/${planId}/logs`)
+          .auth(token, { type: 'bearer' })
+          .send({
+            date: first,
+            mealIndex: 0,
+            status: 'fed',
+            actualGrams: 10,
+            extrasKcal: 0,
+            note: '',
+          })
+      ).status,
+    ).toBe(200);
+    const food = await request(app)
+      .post('/api/v1/foods')
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: planInput(petId).food });
+    expect(food.status).toBe(201);
+    const input = {
+      requestId: randomUUID(),
+      petId,
+      date: first,
+      source: 'saved',
+      foodId: food.body.food.id,
+      grams: 50,
+    };
+    const saved = await request(app)
+      .post('/api/v1/diet-entries')
+      .auth(token, { type: 'bearer' })
+      .send(input);
+    expect(saved.status).toBe(201);
+    const catalog = await request(app)
+      .post('/api/v1/diet-entries')
+      .auth(token, { type: 'bearer' })
+      .send({
+        ...input,
+        requestId: randomUUID(),
+        source: 'catalog',
+        foodId: defaultIngredientCatalog[0]!.id,
+      });
+    expect(catalog.status).toBe(201);
+    expect(
+      (
+        await request(app)
+          .put(`/api/v1/foods/${food.body.food.id}`)
+          .auth(token, { type: 'bearer' })
+          .send({
+            petId,
+            food: { ...food.body.food.food, name: 'Changed current label', calories: 5000 },
+          })
+      ).status,
+    ).toBe(200);
+    const snapshot = await getDb()
+      .collection('diet_entries')
+      .findOne({ _id: new ObjectId(saved.body.entry.id) });
+    expect(snapshot).not.toBeNull();
+    await getDb()
+      .collection('diet_entries')
+      .insertMany([
+        { ...snapshot!, _id: new ObjectId(), requestId: randomUUID(), ownerId: 'foreign-owner' },
+        {
+          ...snapshot!,
+          _id: new ObjectId(),
+          requestId: randomUUID(),
+          petId: new ObjectId(otherPet),
+        },
+        { ...snapshot!, _id: new ObjectId(), requestId: randomUUID(), date: '2024-02-03' },
+        { ...snapshot!, _id: new ObjectId(), requestId: randomUUID(), date: '2999-01-01' },
+      ]);
+    const load = () =>
+      request(app)
+        .get(`/api/v1/progress?petId=${petId}&month=${month}`)
+        .auth(token, { type: 'bearer' });
+    const result = await load();
+    expect(result.status).toBe(200);
+    expect(result.body.progress.days[0]).toMatchObject({
+      status: 'recorded',
+      mealsLogged: 1,
+      foodsLogged: 2,
+      grams: 110,
+      kcal: 292.5,
+    });
+    expect(result.body.progress.days[0].foodEntries).toHaveLength(2);
+    expect(result.body.progress.days[0].foodEntries[0].food.name).toBe('Adult food');
+    expect(result.body.progress.summary).toMatchObject({
+      recordedDays: 1,
+      loggedMeals: 1,
+      loggedFoods: 2,
+      knownLoggedKcal: 292.5,
+      loggedGrams: 110,
+    });
+    const historical = await request(app)
+      .get(`/api/v1/progress?petId=${petId}&month=2024-02`)
+      .auth(token, { type: 'bearer' });
+    expect(historical.body.progress.days[2]).toMatchObject({
+      status: 'recorded',
+      mealsLogged: 0,
+      foodsLogged: 1,
+      kcal: 175,
+      targetPlanId: null,
+    });
+
+    const unknownFood = await request(app)
+      .post('/api/v1/foods')
+      .auth(token, { type: 'bearer' })
+      .send({ petId, food: { ...planInput(petId).food, calories: null } });
+    expect(unknownFood.status).toBe(201);
+    const unknown = await request(app)
+      .post('/api/v1/diet-entries')
+      .auth(token, { type: 'bearer' })
+      .send({ ...input, requestId: randomUUID(), foodId: unknownFood.body.food.id });
+    expect(unknown.status).toBe(201);
+    expect((await load()).body.progress.days[0]).toMatchObject({
+      kcal: null,
+      grams: 160,
+      foodsLogged: 3,
+    });
+    expect((await load()).body.progress.summary).toMatchObject({
+      knownLoggedKcal: null,
+      unknownCalorieDays: 1,
+    });
+    expect(
+      (
+        await request(app)
+          .delete(`/api/v1/diet-entries/${unknown.body.entry.id}`)
+          .auth(token, { type: 'bearer' })
+      ).status,
+    ).toBe(204);
+    expect((await load()).body.progress.summary.knownLoggedKcal).toBe(292.5);
+    expect(
+      (
+        await request(app)
+          .delete(`/api/v1/diet-entries/${catalog.body.entry.id}`)
+          .auth(token, { type: 'bearer' })
+      ).status,
+    ).toBe(204);
+    expect((await load()).body.progress.days[0]).toMatchObject({
+      kcal: 210,
+      grams: 60,
+      foodsLogged: 1,
     });
   });
 });

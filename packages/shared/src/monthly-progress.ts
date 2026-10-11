@@ -1,4 +1,5 @@
 import { dailyIntake, mealKcal } from './meal-intake.js';
+import type { DietEntry } from './daily-diet.js';
 import type { FeedingLog, MealPlan } from './meal-plans.js';
 import type { NutritionObservation } from './nutrition-observations.js';
 import { todayInTimeZone, validCalendarDay } from './planner-date.js';
@@ -19,6 +20,7 @@ export type MonthlyProgressDay = {
   date: string;
   status: 'future' | 'unlogged' | 'recorded';
   mealsLogged: number;
+  foodsLogged: number;
   skippedMeals: number;
   grams: number | null;
   kcal: number | null;
@@ -28,6 +30,7 @@ export type MonthlyProgressDay = {
   targetPlanVersion: number | null;
   recordedPlanVersions: number[];
   entries: MonthlyFeedingEntry[];
+  foodEntries: DietEntry[];
 };
 
 export type MonthlyProgress = {
@@ -39,6 +42,7 @@ export type MonthlyProgress = {
   summary: {
     recordedDays: number;
     loggedMeals: number;
+    loggedFoods: number;
     knownCalorieDays: number;
     unknownCalorieDays: number;
     knownLoggedKcal: number | null;
@@ -77,12 +81,20 @@ export function summarizeMonthlyProgress(input: {
   timeZone: string;
   plans: MealPlan[];
   logs: FeedingLog[];
+  foodEntries?: DietEntry[];
   measurements?: NutritionObservation[];
 }): MonthlyProgress {
   const dates = progressMonthDates(input.month);
   const plans = input.plans.filter((plan) => plan.petId === input.petId);
   const byId = new Map(plans.map((plan) => [plan.id, plan]));
   const orderedPlans = [...plans].sort((a, b) => b.version - a.version);
+  const savedFoodEntries = [
+    ...new Map(
+      (input.foodEntries ?? [])
+        .filter((entry) => entry.petId === input.petId)
+        .map((entry) => [entry.id, entry]),
+    ).values(),
+  ];
   const days = dates.map((date): MonthlyProgressDay => {
     const target = orderedPlans.find((plan) => activeOn(plan, date));
     const logs =
@@ -103,20 +115,29 @@ export function summarizeMonthlyProgress(input: {
         note: log.note,
       };
     });
-    const recorded = entries.length > 0;
+    // Saved portions already contain their original composition; never recalculate
+    // them from a current custom label or copy them into the plan log list.
+    const foodEntries =
+      date > input.today ? [] : savedFoodEntries.filter((entry) => entry.date === date);
+    const recorded = entries.length > 0 || foodEntries.length > 0;
+    const amounts = [
+      ...entries,
+      ...foodEntries.map((entry) => ({ grams: entry.grams, kcal: entry.nutrition.kcal })),
+    ];
     return {
       date,
       status: date > input.today ? 'future' : recorded ? 'recorded' : 'unlogged',
       mealsLogged: entries.length,
+      foodsLogged: foodEntries.length,
       skippedMeals: entries.filter((entry) => entry.status === 'skipped').length,
       grams:
-        !recorded || entries.some((entry) => entry.grams === null)
+        !recorded || amounts.some((entry) => entry.grams === null)
           ? null
-          : entries.reduce((sum, entry) => sum + entry.grams!, 0),
+          : amounts.reduce((sum, entry) => sum + entry.grams!, 0),
       kcal:
-        !recorded || entries.some((entry) => entry.kcal === null)
+        !recorded || amounts.some((entry) => entry.kcal === null)
           ? null
-          : entries.reduce((sum, entry) => sum + entry.kcal!, 0),
+          : amounts.reduce((sum, entry) => sum + entry.kcal!, 0),
       targetGrams: target?.preview.dailyGrams ?? null,
       targetKcal: target ? dailyIntake(target, []).targetKcal : null,
       targetPlanId: target?.id ?? null,
@@ -127,6 +148,7 @@ export function summarizeMonthlyProgress(input: {
         ),
       ].sort((a, b) => a - b),
       entries,
+      foodEntries,
     };
   });
   const recorded = days.filter((day) => day.status === 'recorded');
@@ -140,6 +162,7 @@ export function summarizeMonthlyProgress(input: {
     summary: {
       recordedDays: recorded.length,
       loggedMeals: recorded.reduce((sum, day) => sum + day.mealsLogged, 0),
+      loggedFoods: recorded.reduce((sum, day) => sum + day.foodsLogged, 0),
       knownCalorieDays: known.length,
       unknownCalorieDays: recorded.length - known.length,
       knownLoggedKcal: known.length ? known.reduce((sum, day) => sum + day.kcal!, 0) : null,

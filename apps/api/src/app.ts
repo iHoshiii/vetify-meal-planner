@@ -12,6 +12,8 @@ import observationsRoute from './routes/v1/nutrition-observations.route.js';
 import exportRoute from './routes/v1/export.route.js';
 import foodsRoute from './routes/v1/foods.route.js';
 import progressRoute from './routes/v1/progress.route.js';
+import dietEntriesRoute from './routes/v1/diet-entries.route.js';
+import dietAssessmentsRoute from './routes/v1/diet-assessments.route.js';
 import { AppError } from './utils/AppError.js';
 
 export function createApp(options: { config?: ApiConfig; fetcher?: Fetcher } = {}) {
@@ -54,6 +56,8 @@ export function createApp(options: { config?: ApiConfig; fetcher?: Fetcher } = {
   app.use('/api/v1/export', exportRoute);
   app.use('/api/v1/foods', foodsRoute);
   app.use('/api/v1/progress', progressRoute);
+  app.use('/api/v1/diet-entries', dietEntriesRoute);
+  app.use('/api/v1/diet-assessments', dietAssessmentsRoute);
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
