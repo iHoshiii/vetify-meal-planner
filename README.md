@@ -83,8 +83,11 @@ The app/API `.env.example` files describe configuration. Configure environment v
 
 - Multiple pet profiles with separate ownership, age provenance and nutrition observations.
 - A selected pet in the mobile header, with a pet switcher and separate user account actions for Pets, Export my data and Log out.
-- Mobile Foods, Tracker and Progress tabs: saved packaged-food labels, daily feeding logs and monthly recorded progress.
-- Custom food labels stored per pet and available during meal-plan setup. Built-in catalog entries can be added to `packages/shared/src/foods.ts` after verifying their package calories, species, life stage and label source. The initial catalog is empty.
+- Mobile Foods, Tracker and Progress tabs: a food library, daily feeding logs and monthly recorded progress.
+- Twenty built-in dog ingredients with estimated calories, protein, fat and carbohydrates per 100 g, plus search and category filters. Built-in foods match the selected pet's species; cats need a separate cat-food catalogue, whose defaults await a provided list. Built-in entries are read-only; users can add and edit custom ingredients and packaged-food labels separately for each pet.
+- Food rows have Add and View on the left. View shows read-only composition; Add records a gram portion in the selected pet's daily diet. Recorded food snapshots survive later label edits, are included in monthly progress and owner exports, and can be removed from the Tracker.
+- Tracker shows daily Target, Added and Remaining for calories, protein and fat, plus logged carbohydrates. A confirmed current weight and nine-point body-condition assessment supports starting estimates for eligible, growth-complete adult dogs. Diary recording is available even when automatic targets require review.
+- Saved packaged-food labels are available during meal-plan setup. Individual ingredients are kept separate from the primary-food picker because they do not establish a complete diet.
 - Existing-amount schedules and starting portion estimates for eligible adult pets.
 - Guided setup, calorie-label conversion, server preview, explicit save and version history.
 - Feeding and extras logs, daily calorie budget and review prompts. Monthly progress preserves historical food density and plan versions; missing intake stays unknown.
@@ -93,6 +96,12 @@ The app/API `.env.example` files describe configuration. Configure environment v
 - Owner-scoped export and dry-run-first database migration tools.
 
 Legacy pet condition scores and newer nine-point observations remain distinct. This extraction preserves existing calculations and warnings.
+
+Daily dog references follow the [research energy method](docs/dog-meal-planner-research-and-blueprint.md#71-rer-and-one-method-selection): `70 × weightKg^0.75`, with one maintenance factor (1.4 for ordinary neutered adults, 1.6 for intact adults). A 6 kg neutered adult starts at approximately 376 kcal with the default factor; 430 kcal uses the illustrative 1.6 factor. Other activity levels, growth, reproduction, weight-change goals and clinical concerns require a reviewed plan instead of automatic multipliers. The disclosed FEDIAF 2025 adult profile gives protein/fat minimum comparisons, not exact macro splits or a recipe approval. Carbohydrates have no universal target in this profile. Missing composition stays unknown; it does not count as zero. Scheduled feeding logs and food diary entries contribute once to combined intake; record a consumed portion through one logging path.
+
+The ingredient catalog in `packages/shared/src/ingredient-catalog.ts` preserves the supplied table's food names and nutrition numbers. These are estimates without matched analytical source records or verified canine metabolizable energy; preparation and brand affect actual values. Ingredient calories and macros are stored per 100 g separately from packaged-food label calories, and missing custom values remain unknown. Catalog items are not complete recipes, and their estimates do not enter automatic primary-food portion calculations. See [the research's ingredient evidence requirements](docs/dog-meal-planner-research-and-blueprint.md#102-composition-sources-and-update-workflow) and [FDA's nutritional adequacy guidance](https://www.fda.gov/animal-veterinary/animal-health-literacy/complete-and-balanced-pet-food).
+
+Preparation notes use conservative guidance instead of the supplied treatment, dental-health and universal serving-frequency claims. Sources include [ASPCA's guidance on plain food and preparation](https://www.aspca.org/news/sharing-caring-foods-you-can-safely-share-your-pet), [FDA's xylitol warning](https://www.fda.gov/consumers/consumer-updates/paws-xylitol-its-dangerous-dogs), and [Merck's review of nutritional requirements](https://www.merckvetmanual.com/management-and-nutrition/nutrition-small-animals/nutritional-requirements-of-small-animals). These support general preparation notes, not independent verification of the table's nutrition values or a balanced recipe.
 
 ## Repository
 

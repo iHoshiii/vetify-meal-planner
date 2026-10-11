@@ -24,8 +24,8 @@ function dateLabel(date: string, options: Intl.DateTimeFormatOptions) {
 }
 function dayLabel(day: MonthlyProgressDay) {
   if (day.status === 'future') return `${day.date}: Future day`;
-  if (day.status === 'unlogged') return `${day.date}: No meals recorded`;
-  return `${day.date}: ${day.mealsLogged} recorded meals, ${day.kcal === null ? 'calories unknown' : `${Math.round(day.kcal)} kcal`}`;
+  if (day.status === 'unlogged') return `${day.date}: No food recorded`;
+  return `${day.date}: ${day.mealsLogged} recorded meals, ${day.foodsLogged ?? 0} added foods, ${day.kcal === null ? 'calories unknown' : `${Math.round(day.kcal)} kcal`}`;
 }
 
 export function MonthlyProgressScreen({
@@ -199,7 +199,7 @@ export function MonthlyProgressScreen({
                 </Text>
               )}
               {selected.status === 'unlogged' ? (
-                <Text style={styles.detail}>No meals recorded.</Text>
+                <Text style={styles.detail}>No food recorded.</Text>
               ) : (
                 selected.entries.map((entry, index) => (
                   <View key={`${entry.planId}-${entry.mealIndex}-${index}`} style={styles.entry}>
@@ -227,6 +227,22 @@ export function MonthlyProgressScreen({
                   </View>
                 ))
               )}
+              {(selected.foodEntries ?? []).map((entry) => (
+                <View key={entry.id} style={styles.entry}>
+                  <View style={styles.entryTitle}>
+                    <Text style={styles.label}>{entry.food.name}</Text>
+                    <Text style={styles.small}>Added from Foods</Text>
+                  </View>
+                  <View style={styles.entryValues}>
+                    <Text style={styles.label}>{entry.grams} g</Text>
+                    <Text style={styles.small}>
+                      {entry.nutrition.kcal === null
+                        ? 'Unknown kcal'
+                        : `${Math.round(entry.nutrition.kcal)} kcal`}
+                    </Text>
+                  </View>
+                </View>
+              ))}
               {selected.status === 'recorded' && (
                 <Text style={styles.detail}>
                   Logged total:{' '}

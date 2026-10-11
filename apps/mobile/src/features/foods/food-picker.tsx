@@ -19,19 +19,25 @@ export function FoodPicker({
   const library = useFoods(pet.id);
   const [open, setOpen] = useState(false);
   const groups = [
-    { title: 'Saved foods', items: library.data?.foods ?? [] },
-    { title: 'Catalogue', items: library.data?.catalog ?? [] },
+    {
+      title: 'Saved foods',
+      items: (library.data?.foods ?? []).filter((item) => item.details?.kind !== 'ingredient'),
+    },
+    {
+      title: 'Catalogue',
+      items: (library.data?.catalog ?? []).filter((item) => item.details?.kind !== 'ingredient'),
+    },
   ];
   return (
     <View style={styles.picker}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Choose a saved food"
+        accessibilityLabel="Choose a packaged food"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
         style={styles.trigger}
       >
-        <Text style={styles.triggerText}>Choose a saved food</Text>
+        <Text style={styles.triggerText}>Choose a packaged food</Text>
         <View style={open && styles.expanded}>
           <AppIcon name="chevron-right" size={16} color={colors.muted} />
         </View>
@@ -53,7 +59,9 @@ export function FoodPicker({
             </>
           )}
           {library.data && groups.every((group) => group.items.length === 0) && (
-            <Text style={styles.detail}>No saved foods yet. Enter the package label below.</Text>
+            <Text style={styles.detail}>
+              No packaged foods yet. Ingredients are not complete diets.
+            </Text>
           )}
           {groups
             .filter((group) => group.items.length > 0)

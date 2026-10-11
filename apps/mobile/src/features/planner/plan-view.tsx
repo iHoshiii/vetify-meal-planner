@@ -13,10 +13,12 @@ export function PlanView({
   plan,
   history,
   onReview,
+  showBudget = true,
 }: {
   plan: MealPlan;
   history: MealPlan[];
   onReview: () => void;
+  showBudget?: boolean;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const today = usePlannerToday(plan.timeZone);
@@ -26,7 +28,7 @@ export function PlanView({
       <View style={styles.header}>
         <View style={styles.title}>
           <Text accessibilityRole="header" style={styles.petName}>
-            Tracker
+            {showBudget ? 'Tracker' : 'Meal schedule'}
           </Text>
           <Text style={styles.summary}>
             {today} · {plan.food.name}
@@ -50,7 +52,7 @@ export function PlanView({
         )}
         {!day.isError && !day.isLoading && (
           <>
-            <DailyBudget plan={plan} logs={day.logs} earlier={day.earlier} />
+            {showBudget && <DailyBudget plan={plan} logs={day.logs} earlier={day.earlier} />}
             {plan.mealTimes.map((_, index) => (
               <MealLogRow
                 key={`${plan.id}-${today}-${index}`}

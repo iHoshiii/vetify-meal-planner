@@ -1,18 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { usePrincipal } from '../../auth/auth-boundary';
 import { ownerQueryKey } from '../../auth/session';
 import type { AppTab } from '../../components/app-tab-bar';
 import { ScreenActivity, useScreenActive } from '../../components/screen-activity';
-import { AppIcon } from '../../components/app-icon';
 import { Button, Card, ErrorMessage, colors } from '../../components/ui';
 import { getMealPlans } from '../../services/meal-plans.service';
 import { FoodsScreen } from '../foods/foods-screen';
 import { MonthlyProgressScreen } from '../progress/monthly-progress-screen';
 import { PlanView } from './plan-view';
 import { PlanWizard } from './plan-wizard';
+import { DailyDietTracker } from './daily-diet-tracker';
 import { usePlannerToday } from './use-planner-today';
 
 export default function PlannerPage({
@@ -29,12 +29,15 @@ export default function PlannerPage({
   const today = usePlannerToday(principal?.region.timeZone ?? 'Asia/Manila');
   const queryClient = useQueryClient();
   const [reviewing, setReviewing] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [assessmentEditing, setAssessmentEditing] = useState(false);
   const plans = useQuery({
     queryKey: ownerQueryKey('meal-plans', pet.id),
     queryFn: () => getMealPlans(pet.id),
   });
   const activePlan = plans.data?.find((plan) => !plan.endedAt);
   function reviewPlan() {
+    setAssessmentEditing(false);
     setReviewing(true);
     onChangeTab('tracker');
   }
@@ -70,33 +73,48 @@ export default function PlannerPage({
                 });
               }}
             />
-          ) : activePlan ? (
-            <PlanView
-              key={activePlan.id}
-              plan={activePlan}
-              history={plans.data ?? []}
-              onReview={reviewPlan}
-            />
           ) : (
-            <View style={styles.empty}>
-              <Text accessibilityRole="header" style={styles.title}>
-                Tracker
-              </Text>
-              <Card>
-                <View style={styles.intro}>
-                  <AppIcon name="bowl" size={32} />
-                  <Text style={styles.emptyTitle}>Plan {pet.name}'s meals</Text>
-                  <Text style={styles.detail}>Set their food, portions, and meal times.</Text>
-                </View>
-                <Button label="Create meal plan" onPress={reviewPlan} />
-              </Card>
-            </View>
+            <>
+              <DailyDietTracker
+                pet={pet}
+                today={today}
+                plans={plans.data ?? []}
+                onFoods={() => onChangeTab('foods')}
+                onAssessmentEditingChange={setAssessmentEditing}
+              />
+              {!assessmentEditing &&
+                (activePlan ? (
+                  <>
+                    <Button
+                      label={scheduleOpen ? 'Hide meal schedule' : 'Meal schedule'}
+                      variant="secondary"
+                      onPress={() => setScheduleOpen(!scheduleOpen)}
+                    />
+                    {scheduleOpen && (
+                      <PlanView
+                        key={activePlan.id}
+                        plan={activePlan}
+                        history={plans.data ?? []}
+                        onReview={reviewPlan}
+                        showBudget={false}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <Button label="Set meal times" variant="secondary" onPress={reviewPlan} />
+                ))}
+            </>
           )}
         </ScrollView>
       </ScreenActivity>
       <ScreenActivity value={active && tab === 'foods'}>
         <View style={{ flex: 1, display: tab === 'foods' ? 'flex' : 'none' }}>
-          <FoodsScreen pet={pet} activeFood={activePlan?.food} onPlanMeals={reviewPlan} />
+          <FoodsScreen
+            pet={pet}
+            today={today}
+            activeFood={activePlan?.food}
+            onPlanMeals={reviewPlan}
+          />
         </View>
       </ScreenActivity>
       {tab === 'progress' && (
@@ -127,9 +145,4 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     alignSelf: 'center',
   },
-  empty: { gap: 16 },
-  title: { color: colors.ink, fontSize: 24, fontWeight: '700' },
-  intro: { alignItems: 'center', gap: 10, paddingVertical: 16 },
-  emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '600', textAlign: 'center' },
-  detail: { color: colors.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });
