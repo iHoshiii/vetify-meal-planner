@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMockMain } from './app';
-import { demoUsers } from './demo-users';
+import { createMockMain } from '../app';
+import { demoUsers } from '../demo-users';
 
 afterEach(() => vi.unstubAllEnvs());
 

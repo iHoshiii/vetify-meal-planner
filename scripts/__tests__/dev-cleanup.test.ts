@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { expect, it } from 'vitest';
 
-const modulePath = './dev-cleanup.mjs';
+const modulePath = '../dev-cleanup.mjs';
 const { stopChild } = await import(modulePath);
 
 it('waits for its own running service to terminate before cleanup continues', async () => {

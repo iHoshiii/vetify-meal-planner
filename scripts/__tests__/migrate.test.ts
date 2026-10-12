@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ObjectId } from 'mongodb';
-import { hashDocument, snapshotSummary } from './migration/codec.js';
-import { migrate } from './migration/engine.js';
-import { at, fixture, id, MemoryDatabase } from './migration/fixtures.js';
+import { hashDocument, snapshotSummary } from '../migration/codec.js';
+import { migrate } from '../migration/engine.js';
+import { at, fixture, id, MemoryDatabase } from './migration-fixtures.js';
 
 describe('planner data migration on synthetic memory databases', () => {
   it('defaults to a read-only dry run, preserves BSON and is idempotent on rerun', async () => {

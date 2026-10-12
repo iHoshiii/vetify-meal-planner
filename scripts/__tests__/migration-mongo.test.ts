@@ -2,10 +2,10 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MongoClient, ObjectId, type Db } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { collections } from './migration/codec.js';
-import { migrate } from './migration/engine.js';
-import { assertDatabaseSeparation } from './migration/cli.js';
-import { at, fixture, id } from './migration/fixtures.js';
+import { collections } from '../migration/codec.js';
+import { migrate } from '../migration/engine.js';
+import { assertDatabaseSeparation } from '../migration/cli.js';
+import { at, fixture, id } from './migration-fixtures.js';
 
 describe('migration against isolated synthetic Mongo databases', () => {
   let server: MongoMemoryServer;

@@ -7,8 +7,8 @@ import {
   type Document,
   type IndexDescription,
 } from 'mongodb';
-import { collections, type Snapshot } from './codec.js';
-import type { MigrationDatabase } from './engine.js';
+import { collections, type Snapshot } from '../migration/codec.js';
+import type { MigrationDatabase } from '../migration/engine.js';
 
 export const id = (suffix: number) => new ObjectId(suffix.toString(16).padStart(24, '0'));
 export const at = (day: number) =>

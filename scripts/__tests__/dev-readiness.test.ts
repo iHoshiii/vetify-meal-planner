@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { waitForPlanner } from './dev-readiness';
+import { waitForPlanner } from '../dev-readiness';
 
 const servers: http.Server[] = [];
 afterEach(async () => {

@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createMockMain } from './app';
-import { demoUsers } from './demo-users';
+import { createMockMain } from '../app';
+import { demoUsers } from '../demo-users';
 
 describe('native demo authentication', () => {
   it('refreshes without cookies and revokes every access token on logout', async () => {

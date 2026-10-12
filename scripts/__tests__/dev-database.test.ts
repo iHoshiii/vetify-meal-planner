@@ -19,7 +19,7 @@ vi.mock('mongodb', () => ({
   },
 }));
 vi.mock('mongodb-memory-server', () => ({ MongoMemoryServer: { create: mocks.create } }));
-const modulePath = './dev-database.mjs';
+const modulePath = '../dev-database.mjs';
 const { startLocalDatabase } = await import(modulePath);
 let stop: (() => Promise<void>) | undefined;
 

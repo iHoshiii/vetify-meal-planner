@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { migrate } from './migration/engine.js';
-import { migrationArguments } from './migration/cli.js';
-import { at, fixture, id, MemoryDatabase } from './migration/fixtures.js';
+import { migrate } from '../migration/engine.js';
+import { migrationArguments } from '../migration/cli.js';
+import { at, fixture, id, MemoryDatabase } from './migration-fixtures.js';
 
 describe('migration preflight validation', () => {
   it.each([

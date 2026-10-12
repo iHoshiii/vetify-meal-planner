@@ -1,9 +1,9 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { nativeRedirectUri } from '@vetify/planner-shared/native-auth';
-import { createMockMain } from './app';
-import { demoUsers } from './demo-users';
-import { handoffBody, signedInMain } from './native-sso.fixtures';
+import { createMockMain } from '../app';
+import { demoUsers } from '../demo-users';
+import { handoffBody, signedInMain } from '../native-sso.fixtures';
 
 describe('native account handoff', () => {
   it('uses the computer main login to issue an account QR without reusable session tokens', async () => {

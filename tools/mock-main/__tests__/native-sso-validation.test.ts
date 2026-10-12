@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createMockMain } from './app';
-import { handoffBody, exchangeBody, signedInMain } from './native-sso.fixtures';
+import { createMockMain } from '../app';
+import { handoffBody, exchangeBody, signedInMain } from '../native-sso.fixtures';
 
 describe('native handoff validation', () => {
   it.each([
