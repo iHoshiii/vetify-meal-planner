@@ -1,5 +1,6 @@
+import { requestNativeSession } from './native-session-request';
 import * as SecureStore from 'expo-secure-store';
-import { z } from 'zod';
+
 import {
   nativeClientId,
   nativeRedirectUri,
@@ -7,7 +8,7 @@ import {
 } from '@vetify/planner-shared/native-auth';
 import { serverUrls } from '../config';
 import { ApiError, readResponse } from '../services/api-error';
-import { reportAuthFailure } from './auth-diagnostics';
+
 import { clearDrafts, getSession, writeSession, type AuthSession } from './session';
 
 const legacyRefreshKey = 'vetify.refresh-token';
@@ -15,16 +16,6 @@ const rememberedRefreshKey = 'vetify.remembered-refresh-token';
 export type SignInOptions = { rememberMe?: boolean };
 export type LoginInput = { email: string; password: string };
 export type SignupInput = LoginInput & { name: string; confirmPassword: string };
-const authSchema = z.object({
-  accessToken: z.string().min(1),
-  refreshToken: z.string().min(1),
-  user: z.object({
-    id: z.string().min(1),
-    name: z.string().nullable(),
-    email: z.string(),
-    role: z.enum(['user', 'professional', 'admin']),
-  }),
-});
 let refreshInFlight: Promise<AuthSession> | null = null;
 let refreshCredential: { token: string; remembered: boolean } | null = null;
 let generation = 0;
@@ -34,20 +25,6 @@ function withCredentials<T>(action: () => Promise<T>): Promise<T> {
   credentials = next;
   return next;
 }
-function connectionError(endpoint: string, error: unknown, signal: AbortSignal) {
-  const timedOut =
-    signal.aborted ||
-    (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name));
-  const reason = timedOut ? 'request-timeout' : 'network-unreachable';
-  reportAuthFailure(endpoint, reason);
-  return new ApiError(
-    0,
-    timedOut
-      ? 'Vetify is taking too long to respond. Please try again.'
-      : 'Cannot connect to Vetify. Check your connection and try again.',
-    reason,
-  );
-}
 async function requestSession(
   action: 'login' | 'signup' | 'refresh' | 'exchange' | 'oauth/exchange',
   body: unknown,
@@ -55,34 +32,7 @@ async function requestSession(
   rememberMe: boolean,
 ): Promise<AuthSession> {
   if (started !== generation) throw new ApiError(401, 'The account session changed.');
-  const endpoint = `${serverUrls().main}/auth/native/${action}`;
-  const signal = AbortSignal.timeout(15000);
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal,
-    });
-  } catch (error) {
-    throw connectionError(endpoint, error, signal);
-  }
-  let value: unknown;
-  try {
-    value = await readResponse(response);
-  } catch (error) {
-    if (error instanceof ApiError) {
-      reportAuthFailure(endpoint, 'http-error', response.status);
-      throw error;
-    }
-    throw connectionError(endpoint, error, signal);
-  }
-  const parsed = authSchema.safeParse(value);
-  if (!parsed.success) {
-    reportAuthFailure(endpoint, 'invalid-response', response.status);
-    throw new ApiError(503, 'The account service returned an invalid mobile session.');
-  }
+  const parsed = await requestNativeSession(action, body);
   const session = { accessToken: parsed.data.accessToken, user: parsed.data.user };
   await withCredentials(async () => {
     if (started !== generation) throw new ApiError(401, 'The account session changed.');

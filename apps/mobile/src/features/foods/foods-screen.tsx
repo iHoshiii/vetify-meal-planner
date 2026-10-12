@@ -2,9 +2,9 @@ import { ScrollView, StyleSheet } from 'react-native';
 import type { FoodLabel } from '@vetify/planner-shared/foods';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { accountToday } from '../../auth/session';
-import { FoodForm } from './food-form';
+import { FoodForm } from './forms/food-form';
 import { FoodLibrary } from './food-library';
-import { FoodFilterPanel } from './food-filter-panel';
+import { FoodFilterPanel } from './filters/food-filters';
 import { useFoodBrowser } from './use-food-browser';
 
 export function FoodsScreen({

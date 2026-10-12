@@ -1,8 +1,9 @@
+import { usePlannerConnectivity } from './use-planner-connectivity';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, BackHandler, Keyboard, ScrollView, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Keyboard, ScrollView, View } from 'react-native';
 import type { Pet } from '@vetify/planner-shared/pets';
-import NetInfo from '@react-native-community/netinfo';
-import { focusManager, onlineManager, useIsMutating } from '@tanstack/react-query';
+
+import { useIsMutating } from '@tanstack/react-query';
 import { getSession } from '../../auth/session';
 import { usePrincipal } from '../../auth/auth-boundary';
 import { AppHeader } from '../../components/app-header';
@@ -18,7 +19,7 @@ import { usePlannerToday } from './use-planner-today';
 import PlannerPage from './planner-page';
 
 export function ConnectedPlanner() {
-  const [online, setOnline] = useState(true);
+  const online = usePlannerConnectivity();
   const [screen, setScreen] = useState<'workspace' | 'pets' | 'account'>('workspace');
   const [tab, setTab] = useState<AppTab>('tracker');
   const [switcher, setSwitcher] = useState(false);
@@ -61,21 +62,6 @@ export function ConnectedPlanner() {
       shown.remove();
       hidden.remove();
     };
-  }, []);
-  useEffect(
-    () =>
-      NetInfo.addEventListener((state) => {
-        const connected = state.isConnected !== false && state.isInternetReachable !== false;
-        setOnline(connected);
-        onlineManager.setOnline(connected);
-      }),
-    [],
-  );
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) =>
-      focusManager.setFocused(state === 'active'),
-    );
-    return () => subscription.remove();
   }, []);
   return (
     <View style={{ flex: 1 }}>
