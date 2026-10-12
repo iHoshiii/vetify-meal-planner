@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BackHandler, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Image, StyleSheet, Text, View } from 'react-native';
 import {
   defaultFoodDetails,
   savedFoodInputSchema,
@@ -348,6 +348,23 @@ export function FoodForm({
               maxLength={10}
               placeholder="YYYY-MM-DD"
             />
+            <Field
+              label="Photo URL (optional)"
+              value={details.imageUrl ?? ''}
+              onChangeText={(value) =>
+                updateDetails({ imageUrl: value.trim() === '' ? null : value.trim() })
+              }
+              maxLength={500}
+              placeholder="https://…"
+            />
+            {details.imageUrl ? (
+              <Image
+                source={{ uri: details.imageUrl }}
+                style={styles.preview}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+            ) : null}
           </>
         )}
       </View>
@@ -400,4 +417,5 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 8, paddingTop: 4 },
   backAction: { flex: 1, minWidth: 0 },
   saveAction: { flex: 2, minWidth: 0 },
+  preview: { width: '100%', height: 150, borderRadius: 12, backgroundColor: colors.soft },
 });

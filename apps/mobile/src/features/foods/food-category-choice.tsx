@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { colors } from '../../components/ui';
 
 export function FoodCategoryChoice<T extends string>({
@@ -13,44 +13,46 @@ export function FoodCategoryChoice<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <View accessibilityRole="radiogroup" style={styles.options}>
-        {options.map((option) => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      accessibilityRole="radiogroup"
+      accessibilityLabel={label}
+      contentContainerStyle={styles.row}
+    >
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
           <Pressable
             key={option.value}
             accessibilityRole="radio"
             accessibilityLabel={`${label}: ${option.label}`}
-            accessibilityState={{ checked: option.value === value }}
+            accessibilityState={{ checked: active }}
             onPress={() => onChange(option.value)}
-            style={[styles.option, option.value === value && styles.selected]}
+            style={[styles.chip, active && styles.active]}
           >
-            <Text style={[styles.optionText, option.value === value && styles.selectedText]}>
-              {option.label}
-            </Text>
+            <Text style={[styles.text, active && styles.activeText]}>{option.label}</Text>
           </Pressable>
-        ))}
-      </View>
-    </View>
+        );
+      })}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 7, minWidth: 0 },
-  label: { color: colors.ink, fontSize: 14, fontWeight: '600' },
-  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option: {
-    minWidth: 0,
-    maxWidth: '100%',
-    minHeight: 44,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    borderRadius: 10,
+  row: { flexDirection: 'row', gap: 8, paddingVertical: 2, paddingRight: 4 },
+  chip: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.white,
     justifyContent: 'center',
   },
-  selected: { backgroundColor: colors.soft, borderColor: colors.primary },
-  optionText: { color: colors.ink, fontSize: 14, flexShrink: 1 },
-  selectedText: { color: colors.primary, fontWeight: '600' },
+  active: { backgroundColor: colors.primary, borderColor: colors.primary },
+  text: { color: colors.muted, fontSize: 13, fontWeight: '500' },
+  activeText: { color: colors.white, fontWeight: '600' },
 });

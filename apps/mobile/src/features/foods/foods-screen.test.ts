@@ -94,6 +94,10 @@ vi.mock('react-native', () => ({
   ActivityIndicator: ({ accessibilityLabel }: { accessibilityLabel: string }) =>
     createElement('div', { role: 'status', 'aria-label': accessibilityLabel }),
   Switch: () => null,
+  Image: () => null,
+  Modal: ({ visible, children }: { visible?: boolean; children: ReactNode }) =>
+    visible ? createElement('div', {}, children) : null,
+  useWindowDimensions: () => ({ width: 1024, height: 768 }),
   BackHandler: { addEventListener: () => ({ remove: () => {} }) },
   StyleSheet: { create: <T>(styles: T) => styles },
 }));
@@ -141,9 +145,7 @@ function library(foods: SavedFood[] = []) {
   }));
 }
 function mount(pet = dog) {
-  const onPlanMeals = vi.fn();
-  const rendered = render(createElement(FoodsScreen, { pet, onPlanMeals }));
-  return { ...rendered, onPlanMeals };
+  return render(createElement(FoodsScreen, { pet }));
 }
 const input = (name: string) => screen.getByRole('textbox', { name });
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
@@ -177,7 +179,7 @@ it('displays all20 built-in foods with Add/View actions and keeps their macros c
   expect(queries.addMutate).not.toHaveBeenCalled();
 });
 
-it('expands read-only built-in macros and notes through View without Copy/Edit actions', () => {
+it('shows read-only built-in macros and notes in the View popup without Copy/Edit actions', () => {
   mount();
   const builtin = defaultIngredientCatalog[0];
   expect(screen.queryByText(builtin.details.notes, { exact: true })).toBeNull();
@@ -185,14 +187,12 @@ it('expands read-only built-in macros and notes through View without Copy/Edit a
   expect(screen.getByText('Per 100 g (estimated)', { exact: true })).toBeTruthy();
   expect(screen.getByText('165 kcal / 100 g', { exact: true })).toBeTruthy();
   expect(screen.getByText('31 g', { exact: true })).toBeTruthy();
-  expect(screen.queryByText(builtin.details.notes, { exact: true })).toBeNull();
-  click(`Food details: ${builtin.food.name}`);
   expect(screen.getByText(builtin.details.notes, { exact: true })).toBeTruthy();
   expect(screen.queryByRole('textbox', { name: 'Food name' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'Protein, g' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'Amount, g' })).toBeNull();
   expect(screen.queryByRole('button', { name: /Copy|Edit/i })).toBeNull();
-  click(`View: ${builtin.food.name}`);
+  click('Done');
   expect(screen.queryByText(builtin.details.notes, { exact: true })).toBeNull();
   expect(screen.queryByText('31 g', { exact: true })).toBeNull();
   expect(queries.addMutate).not.toHaveBeenCalled();
@@ -322,7 +322,7 @@ it('clears an open form when changing pets and keeps dog defaults and custom foo
   click('View: Owner chicken');
   click('Edit: Owner chicken');
   expect(input('Food name')).toBeTruthy();
-  rendered.rerender(createElement(FoodsScreen, { pet: cat, onPlanMeals: rendered.onPlanMeals }));
+  rendered.rerender(createElement(FoodsScreen, { pet: cat }));
   expect(queries.useFoods).toHaveBeenLastCalledWith(cat.id);
   expect(screen.queryByRole('textbox', { name: 'Food name' })).toBeNull();
   expect(screen.queryByText(defaultIngredientCatalog[0].food.name, { exact: true })).toBeNull();
@@ -330,7 +330,7 @@ it('clears an open form when changing pets and keeps dog defaults and custom foo
   expect(screen.queryByRole('button', { name: 'View: Owner chicken' })).toBeNull();
   click('View: Owner cat package');
   expect(screen.getByRole('button', { name: 'Edit: Owner cat package' })).toBeTruthy();
-  rendered.rerender(createElement(FoodsScreen, { pet: dog, onPlanMeals: rendered.onPlanMeals }));
+  rendered.rerender(createElement(FoodsScreen, { pet: dog }));
   expect(screen.getByText(defaultIngredientCatalog[0].food.name, { exact: true })).toBeTruthy();
   click('View: Owner chicken');
   expect(screen.getByRole('button', { name: 'Edit: Owner chicken' })).toBeTruthy();
@@ -361,9 +361,7 @@ it('clears a cached built-in portion draft and retry key when switching between 
   fireEvent.change(input('Amount, g'), { target: { value: '50' } });
   click('Add to diet');
   // A failed attempt keeps its retry key; a different pet must get a fresh form/key.
-  rendered.rerender(
-    createElement(FoodsScreen, { pet: secondDog, onPlanMeals: rendered.onPlanMeals }),
-  );
+  rendered.rerender(createElement(FoodsScreen, { pet: secondDog }));
   expect(queries.useFoods).toHaveBeenLastCalledWith(secondDog.id);
   expect(screen.queryByRole('textbox', { name: 'Amount, g' })).toBeNull();
   click(`Add: ${defaultIngredientCatalog[0].food.name}`);
@@ -390,7 +388,6 @@ it('resets the previous day confirmation and adds a new portion to the displayed
     createElement(FoodsScreen, {
       pet: dog,
       today: '2026-10-12',
-      onPlanMeals: rendered.onPlanMeals,
     }),
   );
   expect(screen.queryByText("Added to today's diet", { exact: true })).toBeNull();

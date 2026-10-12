@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
 import { portionNutrition, type DietEntryInput } from '@vetify/planner-shared/daily-diet';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { defaultFoodDetails, type FoodDetails, type FoodLabel } from '@vetify/planner-shared/foods';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { AppIcon } from '../../components/app-icon';
-import { Button, Card, ErrorMessage, Field, colors } from '../../components/ui';
+import { Button, Card, ErrorMessage, Field, Popup, colors } from '../../components/ui';
 import { foodNotesText } from '../../components/presentation';
 import { useFoods, useSaveFood } from '../../services/food-queries';
 import { useAddDietEntry } from '../../services/diet-queries';
@@ -29,12 +37,10 @@ type EditingFood = { id?: string; food?: FoodLabel; details?: FoodDetails };
 export function FoodsScreen({
   pet,
   activeFood,
-  onPlanMeals,
   today = accountToday(),
 }: {
   pet: Pet;
   activeFood?: FoodLabel;
-  onPlanMeals: () => void;
   today?: string;
 }) {
   const library = useFoods(pet.id);
@@ -131,11 +137,6 @@ export function FoodsScreen({
               </View>
             </Card>
           )}
-          <Button
-            label="Plan meals"
-            variant={hasFoods ? 'primary' : 'secondary'}
-            onPress={onPlanMeals}
-          />
           {hasCurrent && activeFood && (
             <FoodCard
               key={`${pet.id}:${today}:current-food`}
@@ -143,6 +144,7 @@ export function FoodsScreen({
               food={activeFood}
               details={defaultFoodDetails()}
               current
+              wide
               today={today}
               onSaveLabel={() => openForm(activeFood, defaultFoodDetails())}
             />
@@ -165,33 +167,37 @@ export function FoodsScreen({
             </>
           )}
           {filteredFoods.length > 0 && <Text style={styles.sectionTitle}>Your foods</Text>}
-          {filteredFoods.map((item) => (
-            <FoodCard
-              key={`${pet.id}:${today}:${item.id}`}
-              pet={pet}
-              food={item.food}
-              details={item.details}
-              current={Boolean(activeFood && sameFoodLabel(item.food, activeFood))}
-              today={today}
-              entrySource={{ source: 'saved', foodId: item.id }}
-              onEdit={() => openForm(item.food, item.details, item.id)}
-            />
-          ))}
-          {filteredCatalog.length > 0 && (
-            <View style={styles.catalogHeading}>
-              <Text style={styles.sectionTitle}>Food library</Text>
+          {filteredFoods.length > 0 && (
+            <View style={styles.grid}>
+              {filteredFoods.map((item) => (
+                <FoodCard
+                  key={`${pet.id}:${today}:${item.id}`}
+                  pet={pet}
+                  food={item.food}
+                  details={item.details}
+                  current={Boolean(activeFood && sameFoodLabel(item.food, activeFood))}
+                  today={today}
+                  entrySource={{ source: 'saved', foodId: item.id }}
+                  onEdit={() => openForm(item.food, item.details, item.id)}
+                />
+              ))}
             </View>
           )}
-          {filteredCatalog.map((item) => (
-            <FoodCard
-              key={`${pet.id}:${today}:${item.id}`}
-              pet={pet}
-              food={item.food}
-              details={item.details}
-              today={today}
-              entrySource={{ source: 'catalog', foodId: item.id }}
-            />
-          ))}
+          {filteredCatalog.length > 0 && <Text style={styles.sectionTitle}>Food library</Text>}
+          {filteredCatalog.length > 0 && (
+            <View style={styles.grid}>
+              {filteredCatalog.map((item) => (
+                <FoodCard
+                  key={`${pet.id}:${today}:${item.id}`}
+                  pet={pet}
+                  food={item.food}
+                  details={item.details}
+                  today={today}
+                  entrySource={{ source: 'catalog', foodId: item.id }}
+                />
+              ))}
+            </View>
+          )}
           {!library.isPending &&
             !library.isError &&
             (foods.length > 0 || catalog.length > 0) &&
@@ -210,6 +216,7 @@ function FoodCard({
   food,
   details,
   current = false,
+  wide = false,
   today,
   entrySource,
   onEdit,
@@ -219,13 +226,13 @@ function FoodCard({
   food: FoodLabel;
   details: FoodDetails;
   current?: boolean;
+  wide?: boolean;
   today: string;
   entrySource?: Pick<DietEntryInput, 'source' | 'foodId'>;
   onEdit?: () => void;
   onSaveLabel?: () => void;
 }) {
   const [open, setOpen] = useState<'view' | 'add' | null>(null);
-  const [notesOpen, setNotesOpen] = useState(false);
   const [grams, setGrams] = useState('');
   const [added, setAdded] = useState(false);
   const requestId = useRef<string | null>(null);
@@ -241,6 +248,11 @@ function FoodCard({
     details,
     open === 'add' && validAmount ? Number(grams) : 100,
   );
+  const per100 = portionNutrition(food, details, 100);
+  const matches = foodMatchesPet(food, pet);
+  const subtitle = ingredient
+    ? (foodCategories.find((item) => item.value === details.category)?.label ?? 'Ingredient')
+    : `${food.form === 'dry' ? 'Dry' : food.form === 'wet' ? 'Wet' : 'Other'} · ${food.species === 'dog' ? 'Dogs' : food.species === 'cat' ? 'Cats' : 'Other species'}`;
   function toggle(next: 'view' | 'add') {
     add.reset();
     setAdded(false);
@@ -268,56 +280,103 @@ function FoodCard({
     );
   }
   return (
-    <Card>
-      <View style={styles.cardHeading}>
-        <View style={styles.foodActions}>
-          {entrySource ? (
-            <Button
-              label="Add"
-              compact
-              disabled={add.isPending || !foodMatchesPet(food, pet)}
-              accessibilityLabel={`Add: ${food.name}`}
-              onPress={() => toggle('add')}
-            />
-          ) : (
-            onSaveLabel && (
+    <>
+      {wide ? (
+        <Card>
+          <View style={styles.wideRow}>
+            <View style={styles.identity}>
+              {current && <Text style={styles.current}>Current plan</Text>}
+              <Text style={styles.foodName}>{food.name}</Text>
+              <Text style={styles.detail}>{subtitle}</Text>
+            </View>
+            <View style={styles.wideActions}>
+              {onSaveLabel && (
+                <Button
+                  label="Save"
+                  compact
+                  variant="secondary"
+                  accessibilityLabel={`Save label: ${food.name}`}
+                  onPress={onSaveLabel}
+                />
+              )}
               <Button
-                label="Save"
+                label="View"
                 compact
                 variant="secondary"
-                accessibilityLabel={`Save label: ${food.name}`}
-                onPress={onSaveLabel}
+                accessibilityLabel={`View: ${food.name}`}
+                onPress={() => toggle('view')}
               />
-            )
+            </View>
+          </View>
+          {added && (
+            <Text accessibilityLiveRegion="polite" style={styles.current}>
+              Added to today's diet
+            </Text>
           )}
-          <Button
-            label="View"
-            compact
-            variant="secondary"
-            disabled={add.isPending}
+          {!matches && <Text style={styles.mismatch}>Different species from {pet.name}</Text>}
+        </Card>
+      ) : (
+        <View style={styles.tile}>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel={`View: ${food.name}`}
+            disabled={add.isPending}
             onPress={() => toggle('view')}
-          />
+          >
+            <View style={styles.image}>
+              {details.imageUrl ? (
+                <Image
+                  source={{ uri: details.imageUrl }}
+                  style={styles.photo}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <View style={styles.placeholder}>
+                  <AppIcon name="bowl" size={28} />
+                </View>
+              )}
+              {per100.kcal !== null && (
+                <View style={styles.kcalBadge}>
+                  <Text style={styles.kcalBadgeText}>{Math.round(per100.kcal)} kcal</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.info}>
+              {current && <Text style={styles.current}>Current plan</Text>}
+              <Text style={styles.foodName} numberOfLines={2}>
+                {food.name}
+              </Text>
+              <Text style={styles.detail} numberOfLines={1}>
+                {subtitle}
+              </Text>
+              {!matches && <Text style={styles.mismatch}>Different species from {pet.name}</Text>}
+              {added && (
+                <Text accessibilityLiveRegion="polite" style={styles.current}>
+                  Added to today's diet
+                </Text>
+              )}
+            </View>
+          </Pressable>
+          {entrySource && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.fab,
+                (pressed || add.isPending || !matches) && { opacity: 0.5 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Add: ${food.name}`}
+              disabled={add.isPending || !matches}
+              onPress={() => toggle('add')}
+            >
+              <AppIcon name="plus" size={18} color={colors.white} />
+            </Pressable>
+          )}
         </View>
-        <View style={styles.identity}>
-          {current && <Text style={styles.current}>Current plan</Text>}
-          <Text style={styles.foodName}>{food.name}</Text>
-          <Text style={styles.detail}>
-            {ingredient
-              ? (foodCategories.find((category) => category.value === details.category)?.label ??
-                'Ingredient')
-              : `${food.form === 'dry' ? 'Dry' : food.form === 'wet' ? 'Wet' : 'Other'} · ${food.species === 'dog' ? 'Dogs' : food.species === 'cat' ? 'Cats' : 'Other species'}`}
-          </Text>
-        </View>
-      </View>
-      {added && (
-        <Text accessibilityLiveRegion="polite" style={styles.current}>
-          Added to today's diet
-        </Text>
       )}
-      {open && (
-        <View style={styles.expanded}>
-          {open === 'add' ? (
+      <Popup visible={open !== null} title={food.name} onClose={() => setOpen(null)}>
+        {open === 'add' ? (
+          <>
             <Field
               label="Amount, g"
               value={grams}
@@ -330,105 +389,92 @@ function FoodCard({
               }}
               placeholder="e.g. 50"
             />
-          ) : (
-            <Text style={styles.macroLabel}>Per 100 g{ingredient ? ' (estimated)' : ''}</Text>
-          )}
-          {(open === 'view' || validAmount) && (
-            <>
-              <Text style={styles.calories}>
-                {nutritionText(
-                  nutrition.kcal === null ? null : Math.round(nutrition.kcal * 10) / 10,
-                  ' kcal',
-                )}
-                {open === 'add' ? '' : ' / 100 g'}
-              </Text>
-              <View style={styles.macroRow}>
-                {(
-                  [
-                    ['Protein', nutrition.proteinG],
-                    ['Fat', nutrition.fatG],
-                    ['Carbs', nutrition.carbsG],
-                  ] as const
-                ).map(([label, value]) => (
-                  <View key={label} style={styles.macro}>
-                    <Text style={styles.macroLabel}>{label}</Text>
-                    <Text style={styles.macroValue}>
-                      {nutritionText(value === null ? null : Math.round(value * 10) / 10, ' g')}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-          {open === 'view' && (
-            <>
-              {!ingredient && <Text style={styles.detail}>{foodCalories(food)}</Text>}
-              <Text style={styles.detail}>
-                {ingredient
-                  ? 'Supplemental food'
-                  : food.adequacy === 'complete'
-                    ? 'Complete food (label)'
-                    : 'Completeness not confirmed'}
-              </Text>
-              {details.notes && (
-                <>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Food details: ${food.name}`}
-                    accessibilityState={{ expanded: notesOpen }}
-                    onPress={() => setNotesOpen(!notesOpen)}
-                    style={styles.notesButton}
-                  >
-                    <Text style={styles.notesLabel}>Preparation and notes</Text>
-                    <AppIcon name="chevron-down" size={14} />
-                  </Pressable>
-                  {notesOpen && (
-                    <Text style={styles.detail}>
-                      {foodNotesText(details.notes, entrySource?.source === 'catalog')}
-                    </Text>
+            {validAmount && (
+              <>
+                <Text style={styles.calories}>
+                  {nutritionText(
+                    nutrition.kcal === null ? null : Math.round(nutrition.kcal * 10) / 10,
+                    ' kcal',
                   )}
-                </>
-              )}
-              {onEdit && (
-                <Button
-                  label="Edit food"
-                  variant="ghost"
-                  compact
-                  accessibilityLabel={`Edit: ${food.name}`}
-                  onPress={onEdit}
-                />
-              )}
-            </>
-          )}
-          {open === 'add' && (
-            <>
-              <Text style={styles.detail}>Today's diet · {today}</Text>
-              <ErrorMessage message={add.error?.message} />
-              <View style={styles.macroRow}>
-                <View style={styles.macro}>
-                  <Button
-                    label="Cancel"
-                    variant="secondary"
-                    disabled={add.isPending}
-                    onPress={() => setOpen(null)}
-                  />
+                </Text>
+                <View style={styles.macroRow}>
+                  {(
+                    [
+                      ['Protein', nutrition.proteinG],
+                      ['Fat', nutrition.fatG],
+                      ['Carbs', nutrition.carbsG],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <View key={label} style={styles.macro}>
+                      <Text style={styles.macroLabel}>{label}</Text>
+                      <Text style={styles.macroValue}>
+                        {nutritionText(value === null ? null : Math.round(value * 10) / 10, ' g')}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
-                <View style={styles.macro}>
-                  <Button
-                    label={add.isPending ? 'Adding...' : 'Add to diet'}
-                    disabled={add.isPending || !validAmount}
-                    onPress={addPortion}
-                  />
+              </>
+            )}
+            <Text style={styles.detail}>Today's diet · {today}</Text>
+            <ErrorMessage message={add.error?.message} />
+            <Button
+              label={add.isPending ? 'Adding...' : 'Add to diet'}
+              disabled={add.isPending || !validAmount}
+              onPress={addPortion}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.macroLabel}>Per 100 g{ingredient ? ' (estimated)' : ''}</Text>
+            <Text style={styles.calories}>
+              {nutritionText(
+                nutrition.kcal === null ? null : Math.round(nutrition.kcal * 10) / 10,
+                ' kcal',
+              )}
+              {' / 100 g'}
+            </Text>
+            <View style={styles.macroRow}>
+              {(
+                [
+                  ['Protein', nutrition.proteinG],
+                  ['Fat', nutrition.fatG],
+                  ['Carbs', nutrition.carbsG],
+                ] as const
+              ).map(([label, value]) => (
+                <View key={label} style={styles.macro}>
+                  <Text style={styles.macroLabel}>{label}</Text>
+                  <Text style={styles.macroValue}>
+                    {nutritionText(value === null ? null : Math.round(value * 10) / 10, ' g')}
+                  </Text>
                 </View>
-              </View>
-            </>
-          )}
-        </View>
-      )}
-      {!foodMatchesPet(food, pet) && (
-        <Text style={styles.mismatch}>Different species from {pet.name}</Text>
-      )}
-    </Card>
+              ))}
+            </View>
+            {!ingredient && <Text style={styles.detail}>{foodCalories(food)}</Text>}
+            <Text style={styles.detail}>
+              {ingredient
+                ? 'Supplemental food'
+                : food.adequacy === 'complete'
+                  ? 'Complete food (label)'
+                  : 'Completeness not confirmed'}
+            </Text>
+            {details.notes && (
+              <Text style={styles.detail}>
+                {foodNotesText(details.notes, entrySource?.source === 'catalog')}
+              </Text>
+            )}
+            {onEdit && (
+              <Button
+                label="Edit food"
+                variant="ghost"
+                compact
+                accessibilityLabel={`Edit: ${food.name}`}
+                onPress={onEdit}
+              />
+            )}
+          </>
+        )}
+      </Popup>
+    </>
   );
 }
 
@@ -436,15 +482,22 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 28,
-    gap: 14,
+    gap: 12,
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
   },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, minWidth: 0, fontSize: 24, fontWeight: '700', color: colors.ink },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.ink, marginTop: 6 },
-  catalogHeading: { gap: 6 },
+  title: { flex: 1, minWidth: 0, fontSize: 19, fontWeight: '700', color: colors.ink },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 4,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 },
   empty: { alignItems: 'center', paddingVertical: 20, gap: 10 },
   mark: {
     width: 60,
@@ -455,21 +508,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '600' },
+  emptyTitle: { color: colors.ink, fontSize: 16, fontWeight: '600' },
   emptyAction: { alignSelf: 'stretch', marginTop: 8 },
-  detail: { color: colors.muted, fontSize: 13, lineHeight: 19 },
-  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  foodActions: { width: 68, gap: 6 },
-  expanded: { gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
-  notesButton: { flexDirection: 'row', gap: 6, alignItems: 'center', minHeight: 44 },
-  notesLabel: { color: colors.primary, fontSize: 13, flexShrink: 1 },
-  identity: { flex: 1, minWidth: 0, gap: 4 },
-  foodName: { color: colors.ink, fontSize: 16, fontWeight: '600' },
-  current: { color: colors.primary, fontSize: 12, fontWeight: '600' },
-  calories: { color: colors.ink, fontSize: 14 },
+  detail: { color: colors.muted, fontSize: 12, lineHeight: 18 },
+  tile: {
+    width: '48%',
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  image: {
+    height: 112,
+    backgroundColor: colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photo: { width: '100%', height: '100%' },
+  placeholder: { alignItems: 'center', justifyContent: 'center' },
+  kcalBadge: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  kcalBadgeText: { color: colors.white, fontSize: 11, fontWeight: '700' },
+  fab: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: { padding: 10, gap: 3 },
+  identity: { flex: 1, minWidth: 0, gap: 3 },
+  wideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  wideActions: { width: 76, gap: 6 },
+  foodName: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  current: { color: colors.primary, fontSize: 11, fontWeight: '700' },
+  calories: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   mismatch: { color: '#9a6700', fontSize: 12 },
   macroRow: { flexDirection: 'row', gap: 8 },
   macro: { flex: 1, minWidth: 0, gap: 4 },
   macroLabel: { color: colors.muted, fontSize: 12 },
-  macroValue: { color: colors.ink, fontSize: 13, fontWeight: '500' },
+  macroValue: { color: colors.ink, fontSize: 14, fontWeight: '600' },
 });

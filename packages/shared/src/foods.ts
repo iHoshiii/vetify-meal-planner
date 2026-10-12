@@ -17,6 +17,12 @@ export const foodDetailsSchema = z
       })
       .strict(),
     notes: z.string().trim().max(500),
+    imageUrl: z
+      .string()
+      .trim()
+      .url()
+      .refine((value) => value.startsWith('https://'), 'Use an https image link.')
+      .nullish(),
   })
   .strict()
   .superRefine(({ nutritionPer100g }, context) => {
@@ -40,6 +46,7 @@ export function defaultFoodDetails(kind: FoodDetails['kind'] = 'packaged'): Food
     category: null,
     nutritionPer100g: { kcal: null, proteinG: null, fatG: null, carbsG: null },
     notes: '',
+    imageUrl: null,
   };
 }
 
