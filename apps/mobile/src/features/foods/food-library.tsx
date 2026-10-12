@@ -4,8 +4,8 @@ import type { Pet } from '@vetify/planner-shared/pets';
 import { AppIcon } from '../../components/app-icon';
 import { Button, Card, ErrorMessage, colors } from '../../components/ui';
 import { activeFilterCount } from './food-browse';
-import { FoodSearchBar } from './food-search-bar';
-import { FoodCard } from './food-card';
+import { FoodSearchBar } from './filters/food-filters';
+import { FoodCard } from './cards/food-card';
 import { sameFoodLabel } from './food-label';
 import type { FoodBrowser } from './use-food-browser';
 

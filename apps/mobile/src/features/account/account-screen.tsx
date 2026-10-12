@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useAccountPlan } from '../../auth/auth-boundary';
@@ -109,63 +109,4 @@ export function AccountScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  content: {
-    padding: 20,
-    paddingBottom: 32,
-    gap: 18,
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
-  },
-  heading: { fontSize: 24, fontWeight: '700', color: colors.ink },
-  profile: { paddingVertical: 4 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    flexShrink: 0,
-    backgroundColor: colors.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  details: { flex: 1, minWidth: 0, gap: 4 },
-  name: { color: colors.ink, fontSize: 17, fontWeight: '600' },
-  email: { color: colors.muted, fontSize: 13, lineHeight: 19 },
-  membership: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 4,
-  },
-  plan: {
-    color: colors.primary,
-    backgroundColor: colors.soft,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  actions: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  lastAction: { borderBottomWidth: 0 },
-  actionLabel: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '500', lineHeight: 21 },
-});
+import { styles } from './account-styles';

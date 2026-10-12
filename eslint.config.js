@@ -17,6 +17,18 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['**/*.{js,mjs,cjs,ts,tsx,jsx}'],
+    ignores: [
+      '**/*.{test,spec}.{ts,tsx,js,jsx,mjs,cjs}',
+      '**/tests/**',
+      '**/__tests__/**',
+      '**/*test-helpers.*',
+      '**/*test-fixtures.*',
+      'scripts/migration/fixtures.ts',
+    ],
+    rules: { 'max-lines': ['error', { max: 160, skipBlankLines: false, skipComments: false }] },
+  },
+  {
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: {
       '@typescript-eslint/no-unused-vars': [

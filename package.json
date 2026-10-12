@@ -41,7 +41,7 @@
     "test": "vitest run",
     "test:web": "vitest run --project web",
     "test:api": "vitest run --project api --project node",
-    "test:migration": "vitest run --project node scripts/migrate.test.ts scripts/migration-validation.test.ts scripts/migration-mongo.test.ts",
+    "test:migration": "vitest run --project node scripts/__tests__/migrate.test.ts scripts/__tests__/migration-validation.test.ts scripts/__tests__/migration-mongo.test.ts",
     "test:e2e": "playwright test",
     "start:api": "npm run start --workspace @vetify/planner-api",
     "db:local": "tsx scripts/local-db.ts",
