@@ -3,18 +3,7 @@ import { petAge } from './pet-age.js';
 import type { MealPlanInput, MealPlanPreview } from './meal-plans.js';
 import { foodKcalPerGram } from './meal-intake.js';
 
-function validDay(value: string): number | null {
-  const time = Date.parse(`${value}T00:00:00.000Z`);
-  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value ? time : null;
-}
-
-function splitGrams(total: number, count: number): number[] {
-  const base = Math.floor((total * 10) / count) / 10;
-  const portions = Array.from({ length: count }, () => base);
-  portions[count - 1] = Math.round((total - base * (count - 1)) * 10) / 10;
-  return portions;
-}
-
+import { validPlanDay as validDay, splitMealGrams as splitGrams } from './meal-intake.js';
 export function previewMealPlan(pet: Pet, input: MealPlanInput, today: string): MealPlanPreview {
   const blockers: string[] = [];
   const warnings: string[] = [];
