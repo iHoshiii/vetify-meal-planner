@@ -4,6 +4,8 @@ import { mealPlanInputSchema } from './meal-plans.js';
 export type FoodLabel = z.infer<typeof mealPlanInputSchema.shape.food>;
 
 const nutrientGrams = z.number().finite().min(0).max(100).nullable();
+export const mealTypeSchema = z.enum(['breakfast', 'lunch', 'dinner', 'snack']);
+export type MealType = z.infer<typeof mealTypeSchema>;
 export const foodDetailsSchema = z
   .object({
     kind: z.enum(['packaged', 'ingredient']),
@@ -17,6 +19,11 @@ export const foodDetailsSchema = z
       })
       .strict(),
     notes: z.string().trim().max(500),
+    mealTypes: z
+      .array(mealTypeSchema)
+      .max(4)
+      .refine((items) => new Set(items).size === items.length, 'Choose each meal type once.')
+      .optional(),
     imageUrl: z
       .string()
       .trim()

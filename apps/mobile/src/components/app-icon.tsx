@@ -16,6 +16,7 @@ const paths = {
   calendar: 'M4 5h16v16H4V5Zm4-3v6m8-6v6M4 10h16',
   bowl: 'M3 11h18c0 6-3 9-9 9s-9-3-9-9ZM8 4v3m4-4v4m4-3v3',
   edit: 'm14 5 5 5M4 20l1-6L16 3l5 5-11 11-6 1Z',
+  filters: 'M4 6h16M4 12h16M4 18h16M8 4v4m8 2v4M10 16v4',
 } as const;
 
 export function AppIcon({
