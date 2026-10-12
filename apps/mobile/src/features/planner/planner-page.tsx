@@ -65,9 +65,12 @@ export default function PlannerPage({
               existingPlan={activePlan}
               onCancel={() => setReviewing(false)}
               onSaved={() => {
-                void queryClient
-                  .invalidateQueries({ queryKey: ownerQueryKey('meal-plans', pet.id) })
-                  .then(() => setReviewing(false));
+                void Promise.all([
+                  queryClient.invalidateQueries({ queryKey: ownerQueryKey('meal-plans', pet.id) }),
+                  queryClient.invalidateQueries({
+                    queryKey: ownerQueryKey('diet-assessment', pet.id),
+                  }),
+                ]).then(() => setReviewing(false));
                 void queryClient.invalidateQueries({
                   queryKey: ownerQueryKey('monthly-progress', pet.id),
                 });
@@ -78,6 +81,7 @@ export default function PlannerPage({
               <DailyDietTracker
                 pet={pet}
                 today={today}
+                timeZone={principal?.region.timeZone ?? 'Asia/Manila'}
                 plans={plans.data ?? []}
                 onFoods={() => onChangeTab('foods')}
                 onAssessmentEditingChange={setAssessmentEditing}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors } from './theme';
+import { userMessage } from './presentation';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export function Button({
@@ -74,10 +75,11 @@ export function Toggle({
 export function Card({ children }: { children: ReactNode }) {
   return <View style={styles.card}>{children}</View>;
 }
-export function ErrorMessage({ message }: { message?: string }) {
-  return message ? (
+export function ErrorMessage({ message, fallback }: { message?: string; fallback?: string }) {
+  const text = userMessage(message, fallback);
+  return text ? (
     <Text accessibilityRole="alert" style={styles.error}>
-      {message}
+      {text}
     </Text>
   ) : null;
 }
@@ -110,6 +112,8 @@ export function Notice({
 }
 const styles = StyleSheet.create({
   button: {
+    maxWidth: '100%',
+    minWidth: 0,
     minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -130,8 +134,9 @@ const styles = StyleSheet.create({
   compactLabel: { fontSize: 14 },
   light: { color: colors.white },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
-  toggleText: { flex: 1, color: colors.ink, fontSize: 15 },
+  toggleText: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 15, lineHeight: 21 },
   card: {
+    minWidth: 0,
     backgroundColor: colors.white,
     borderRadius: 14,
     padding: 16,
@@ -139,7 +144,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  error: { color: colors.danger, lineHeight: 21 },
+  error: { color: colors.danger, fontSize: 13, lineHeight: 19 },
   notice: { padding: 12, borderRadius: 10, backgroundColor: colors.soft },
   warning: { backgroundColor: '#fffbeb' },
   errorNotice: { backgroundColor: '#fff1f2' },

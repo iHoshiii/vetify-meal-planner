@@ -59,7 +59,11 @@ export function PetSwitcher({
           )}
           <ErrorMessage message={error} />
           {error && <Button label="Try again" variant="secondary" onPress={onRetry} />}
-          <ScrollView accessibilityRole="radiogroup" keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.list}
+            accessibilityRole="radiogroup"
+            keyboardShouldPersistTaps="handled"
+          >
             {pets.map((pet) => (
               <Pressable
                 key={pet.id}
@@ -89,10 +93,10 @@ export function PetSwitcher({
             ))}
           </ScrollView>
           {!loading && !error && pets.length === 0 && (
-            <Text style={styles.empty}>Add your first pet to get started.</Text>
+            <Text style={styles.empty}>No pets yet.</Text>
           )}
           <Button
-            label="Add or edit pets"
+            label="Manage pets"
             variant="secondary"
             icon={<AppIcon name="plus" size={16} />}
             onPress={onManagePets}
@@ -106,6 +110,9 @@ export function PetSwitcher({
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15, 23, 42, 0.35)' },
   sheet: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -114,7 +121,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  title: { color: colors.ink, fontSize: 21, fontWeight: '600' },
+  title: { color: colors.ink, fontSize: 21, fontWeight: '600', flex: 1, minWidth: 0 },
+  list: { flexShrink: 1 },
   pet: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -133,7 +141,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   identity: { flex: 1, minWidth: 0, gap: 3 },
-  name: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  name: { color: colors.ink, fontSize: 16, fontWeight: '600', lineHeight: 22 },
   detail: { color: colors.muted, fontSize: 12, textTransform: 'capitalize' },
   empty: { color: colors.muted, fontSize: 14, paddingVertical: 12 },
 });

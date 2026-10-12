@@ -60,7 +60,6 @@ export function ObservationForm({
         onChangeText={setDate}
         placeholder="YYYY-MM-DD"
         maxLength={10}
-        hint={`Use YYYY-MM-DD. Latest date: ${today}.`}
       />
       <Choice
         label="Condition, 1 to 9"

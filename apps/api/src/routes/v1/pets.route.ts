@@ -4,11 +4,14 @@ import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 
 import { validate } from '../../middleware/validate.js';
-import { createPet, listPets, updatePet } from '../../models/pets.js';
+import { createPet, findPet, listPets, updatePet } from '../../models/pets.js';
+import { dietPetContext } from '../../models/diet-assessment-context.js';
+import { captureDietTargetSnapshots } from '../../models/diet-target-snapshots.js';
+import { invalidateLegacyDietAssessment } from '../../models/diet-assessments.js';
 import { isValidObjectId } from '../../models/object-id.js';
 import { fail, ok } from '../../utils/response.js';
 import { actorOf } from './caller.js';
-import { accountToday } from './account-today.js';
+import { accountTimeZone, accountToday } from './account-today.js';
 
 const router = Router();
 
@@ -39,8 +42,17 @@ router.put('/:id', validate(petInputSchema), async (req, res) => {
     (input.birthMonth > today.slice(0, 7) || ageFromBirthMonth(input.birthMonth, today).years > 200)
   )
     return fail(res, 400, 'Check the birth month');
+  const previous = await findPet(ownerId, new ObjectId(req.params.id));
   const pet = await updatePet(ownerId, new ObjectId(req.params.id), input, today);
   if (!pet) return fail(res, 404, 'Pet not found');
+  if (
+    previous &&
+    (previous.species === 'cat' || pet.species === 'cat') &&
+    dietPetContext(previous) !== dietPetContext(pet)
+  ) {
+    await captureDietTargetSnapshots(ownerId, pet, today, accountTimeZone(req), null);
+    await invalidateLegacyDietAssessment(ownerId, new ObjectId(pet.id));
+  }
   ok(res, { pet });
 });
 

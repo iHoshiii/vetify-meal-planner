@@ -51,7 +51,7 @@ export function PetReview({
       rows: [
         ['Health conditions', form.healthConditions],
         [
-          'Profile condition score',
+          'Body condition (1 to 10)',
           form.bodyConditionScore === null ? 'Not sure' : `${form.bodyConditionScore} of 10`,
         ],
         ['Activity', form.activityLevel],
@@ -66,17 +66,21 @@ export function PetReview({
           <View style={styles.heading}>
             <Text style={styles.title}>{section.title}</Text>
             <Button
-              label={`Edit ${section.title.toLowerCase()}`}
+              label="Edit"
+              accessibilityLabel={`Edit ${section.title.toLowerCase()}`}
               variant="ghost"
+              compact
               onPress={() => onEdit(index)}
             />
           </View>
-          {section.rows.map(([label, value]) => (
-            <View key={label} style={styles.row}>
-              <Text style={styles.label}>{label}</Text>
-              <Text style={styles.value}>{display(value)}</Text>
-            </View>
-          ))}
+          {section.rows
+            .filter(([, value]) => value.trim())
+            .map(([label, value]) => (
+              <View key={label} style={styles.row}>
+                <Text style={styles.label}>{label}</Text>
+                <Text style={styles.value}>{display(value)}</Text>
+              </View>
+            ))}
         </Card>
       ))}
     </View>
@@ -85,9 +89,16 @@ export function PetReview({
 
 const styles = StyleSheet.create({
   sections: { gap: 12 },
-  heading: { gap: 6, marginBottom: 12 },
-  title: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  row: { gap: 3, marginBottom: 10 },
-  label: { color: colors.muted, fontSize: 12 },
-  value: { color: colors.ink, fontSize: 15 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  title: { color: colors.ink, fontSize: 16, fontWeight: '600', flex: 1, minWidth: 0 },
+  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  label: { color: colors.muted, fontSize: 13, lineHeight: 19, flex: 1, minWidth: 0 },
+  value: {
+    color: colors.ink,
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1.2,
+    minWidth: 0,
+    textAlign: 'right',
+  },
 });

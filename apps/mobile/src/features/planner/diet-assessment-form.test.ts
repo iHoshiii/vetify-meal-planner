@@ -136,9 +136,7 @@ it('prefills an owner-reported weight/date without treating legacy condition sco
   expect(input('Weight, kg').value).toBe('6.2');
   expect(input('Date weighed').value).toBe('2026-10-09');
   expect(input('Body condition, 1 to 9 (optional)').value).toBe('');
-  expect(
-    screen.getByText('Owner-reported. Confirm the weight and date you measured.'),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Daily target' })).toBeTruthy();
   click('Next');
   const radios = screen.getAllByRole('radio');
   expect(radios).toHaveLength(10);
@@ -248,6 +246,93 @@ it('resets measurement and unanswered report state when the selected pet changes
     screen.getAllByRole('radio').every((radio) => radio.getAttribute('aria-checked') === 'false'),
   ).toBe(true);
   expect(rendered.onSave).not.toHaveBeenCalled();
+});
+
+it('requires an explicit cat muscle assessment without assuming a legacy report is normal', () => {
+  const { onSave } = mount({ pet: cat, assessment: { ...confirmed, weightKg: 4 } });
+  click('Next');
+  for (const label of ['Normal', 'Mild loss', 'Moderate loss', 'Severe loss', 'Not sure'])
+    expect(
+      screen
+        .getByRole('radio', { name: `Muscle condition: ${label}` })
+        .getAttribute('aria-checked'),
+    ).toBe('false');
+  click('Save assessment');
+  expect(screen.getByRole('alert').textContent).toBe(
+    'Choose a muscle condition, or select Not sure.',
+  );
+  expect(onSave).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('radio', { name: 'Muscle condition: Normal' }));
+  click('Save assessment');
+  expect(onSave).toHaveBeenCalledExactlyOnceWith({
+    ...confirmed,
+    weightKg: 4,
+    muscleCondition: 'normal',
+  });
+});
+
+it.each([
+  ['Mild loss', 'mild-loss'],
+  ['Moderate loss', 'moderate-loss'],
+  ['Severe loss', 'severe-loss'],
+  ['Not sure', 'unknown'],
+] as const)('preserves the cat muscle report %s for review', (label, muscleCondition) => {
+  const { onSave } = mount({ pet: cat, assessment: { ...confirmed, weightKg: 4 } });
+  click('Next');
+  fireEvent.click(screen.getByRole('radio', { name: `Muscle condition: ${label}` }));
+  click('Save assessment');
+  expect(onSave).toHaveBeenCalledExactlyOnceWith({
+    ...confirmed,
+    weightKg: 4,
+    muscleCondition,
+  });
+});
+
+it('prefills a confirmed cat muscle report and prevents changing it while saving', () => {
+  const rendered = mount({
+    pet: cat,
+    assessment: { ...confirmed, weightKg: 4, muscleCondition: 'mild-loss' },
+  });
+  click('Next');
+  expect(
+    screen.getByRole('radio', { name: 'Muscle condition: Mild loss' }).getAttribute('aria-checked'),
+  ).toBe('true');
+  rendered.rerender(createElement(DietAssessmentForm, { ...rendered.props, pending: true }));
+  expect(
+    screen.getByRole('radio', { name: 'Muscle condition: Normal' }).hasAttribute('disabled'),
+  ).toBe(true);
+  fireEvent.click(screen.getByRole('radio', { name: 'Muscle condition: Normal' }));
+  expect(
+    screen.getByRole('radio', { name: 'Muscle condition: Mild loss' }).getAttribute('aria-checked'),
+  ).toBe('true');
+});
+
+it('does not carry a cat muscle answer or editing step to another pet or a dog', () => {
+  const rendered = mount({ pet: cat });
+  click('Next');
+  fireEvent.click(screen.getByRole('radio', { name: 'Muscle condition: Normal' }));
+  rendered.rerender(
+    createElement(DietAssessmentForm, {
+      ...rendered.props,
+      pet: { ...cat, id: 'cccccccccccccccccccccccc', name: 'Luna' },
+    }),
+  );
+  expect(input('Weight, kg').value).toBe('4');
+  click('Next');
+  expect(
+    screen.getByRole('radio', { name: 'Muscle condition: Normal' }).getAttribute('aria-checked'),
+  ).toBe('false');
+  rendered.rerender(createElement(DietAssessmentForm, { ...rendered.props, pet: dog }));
+  expect(input('Weight, kg').value).toBe('6.2');
+  click('Next');
+  expect(screen.queryByRole('radio', { name: 'Muscle condition: Normal' })).toBeNull();
+  answerAll(['Yes', 'Yes', 'No', 'No', 'No']);
+  click('Save assessment');
+  expect(rendered.onSave).toHaveBeenCalledExactlyOnceWith({
+    ...confirmed,
+    weightMeasuredOn: '2026-10-11',
+    conditionScore: null,
+  });
 });
 
 it('blocks save/cancel navigation while pending and displays a server failure without discarding input', () => {

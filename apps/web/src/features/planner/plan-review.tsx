@@ -34,8 +34,8 @@ export function PlanReview({
         <h3 className="font-bold text-slate-900">{input.food.name}</h3>
         <p className="mt-1 text-sm text-slate-600">
           {input.food.adequacy === 'complete'
-            ? 'Complete food, as entered from label'
-            : 'Food adequacy not confirmed'}
+            ? 'Complete food (label)'
+            : 'Completeness not confirmed'}
           {input.food.calories
             ? ` · ${input.food.calories} kcal/${
                 input.food.calorieBasis === 'kg' ? 'kg' : 'package'
@@ -46,9 +46,7 @@ export function PlanReview({
           <p className="mt-1 text-sm text-slate-600">
             {input.mode === 'manual' ? 'Entered daily amount' : 'Starting estimate'}:{' '}
             {Math.round(preview.dailyKcal)} kcal/day
-            {input.mode === 'estimate'
-              ? `, including ${input.extrasKcal} kcal of extras. Factor ${preview.factor}.`
-              : '.'}
+            {input.mode === 'estimate' ? `, including ${input.extrasKcal} kcal of extras.` : '.'}
           </p>
         )}
         <p className="mt-1 text-sm text-slate-600">
@@ -59,12 +57,12 @@ export function PlanReview({
         {input.mealTimes.map((time, index) => (
           <div
             key={index}
-            className="flex justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
+            className="flex flex-wrap justify-between gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm"
           >
             <span>
               Meal {index + 1} · {time}
             </span>
-            <strong>{preview.mealGrams[index] ?? '—'} g</strong>
+            <strong>{preview.mealGrams[index] ?? 'N/A'} g</strong>
           </div>
         ))}
       </div>
@@ -77,8 +75,7 @@ export function PlanReview({
       )}
       {preview.blockers.length > 0 && (
         <div role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-900">
-          <p className="font-bold">This plan cannot be saved yet.</p>
-          <ul className="mt-2 list-disc pl-5">
+          <ul className="list-disc pl-5">
             {preview.blockers.map((blocker) => (
               <li key={blocker}>{blocker}</li>
             ))}

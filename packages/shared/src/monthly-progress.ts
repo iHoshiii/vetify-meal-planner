@@ -1,5 +1,6 @@
 import { dailyIntake, mealKcal } from './meal-intake.js';
 import type { DietEntry } from './daily-diet.js';
+import type { DietTargetSnapshot } from './diet-target-snapshots.js';
 import type { FeedingLog, MealPlan } from './meal-plans.js';
 import type { NutritionObservation } from './nutrition-observations.js';
 import { todayInTimeZone, validCalendarDay } from './planner-date.js';
@@ -28,6 +29,13 @@ export type MonthlyProgressDay = {
   targetKcal: number | null;
   targetPlanId: string | null;
   targetPlanVersion: number | null;
+  targetDietReference?: {
+    revisionId: string;
+    version: string;
+    profile: DietTargetSnapshot['targets']['profile'];
+    reference: string;
+    timeZone: string;
+  } | null;
   recordedPlanVersions: number[];
   entries: MonthlyFeedingEntry[];
   foodEntries: DietEntry[];
@@ -82,6 +90,7 @@ export function summarizeMonthlyProgress(input: {
   plans: MealPlan[];
   logs: FeedingLog[];
   foodEntries?: DietEntry[];
+  targetSnapshots?: DietTargetSnapshot[];
   measurements?: NutritionObservation[];
 }): MonthlyProgress {
   const dates = progressMonthDates(input.month);
@@ -97,6 +106,20 @@ export function summarizeMonthlyProgress(input: {
   ];
   const days = dates.map((date): MonthlyProgressDay => {
     const target = orderedPlans.find((plan) => activeOn(plan, date));
+    const snapshot =
+      date > input.today
+        ? undefined
+        : (input.targetSnapshots ?? [])
+            .filter((item) => item.petId === input.petId && item.date === date)
+            .sort(
+              (a, b) =>
+                b.recordedAt.localeCompare(a.recordedAt) ||
+                b.revisionId.localeCompare(a.revisionId),
+            )[0];
+    const referenceValid =
+      snapshot?.targets.status === 'estimated' &&
+      !snapshot.expired &&
+      (date !== input.today || snapshot.timeZone === input.timeZone);
     const logs =
       date > input.today
         ? []
@@ -138,10 +161,25 @@ export function summarizeMonthlyProgress(input: {
         !recorded || amounts.some((entry) => entry.kcal === null)
           ? null
           : amounts.reduce((sum, entry) => sum + entry.kcal!, 0),
-      targetGrams: target?.preview.dailyGrams ?? null,
-      targetKcal: target ? dailyIntake(target, []).targetKcal : null,
-      targetPlanId: target?.id ?? null,
-      targetPlanVersion: target?.version ?? null,
+      targetGrams: snapshot ? null : (target?.preview.dailyGrams ?? null),
+      targetKcal: snapshot
+        ? referenceValid
+          ? snapshot.targets.kcal
+          : null
+        : target
+          ? dailyIntake(target, []).targetKcal
+          : null,
+      targetPlanId: snapshot ? null : (target?.id ?? null),
+      targetPlanVersion: snapshot ? null : (target?.version ?? null),
+      targetDietReference: snapshot
+        ? {
+            revisionId: snapshot.revisionId,
+            version: snapshot.targets.version,
+            profile: snapshot.targets.profile,
+            reference: snapshot.targets.reference,
+            timeZone: snapshot.timeZone,
+          }
+        : null,
       recordedPlanVersions: [
         ...new Set(
           entries.flatMap((entry) => (entry.planVersion === null ? [] : [entry.planVersion])),

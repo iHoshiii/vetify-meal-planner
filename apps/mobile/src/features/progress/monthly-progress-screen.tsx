@@ -65,7 +65,7 @@ export function MonthlyProgressScreen({
   return (
     <View style={styles.screen}>
       <Text accessibilityRole="header" style={styles.heading}>
-        Monthly progress
+        Progress
       </Text>
       <View style={styles.monthNav}>
         <Pressable
@@ -112,7 +112,7 @@ export function MonthlyProgressScreen({
                   ? 'N/A'
                   : Math.round(data.summary.knownLoggedKcal)}
               </Text>
-              <Text style={styles.detail}>Kcal on known days</Text>
+              <Text style={styles.detail}>Recorded calories</Text>
             </View>
           </View>
           {data.summary.unknownCalorieDays > 0 && (
@@ -198,6 +198,13 @@ export function MonthlyProgressScreen({
                   planned
                 </Text>
               )}
+              {selected.targetDietReference && (
+                <Text style={styles.detail}>
+                  {selected.targetKcal === null
+                    ? 'Daily reference needs review.'
+                    : `Daily reference · ${Math.round(selected.targetKcal)} kcal`}
+                </Text>
+              )}
               {selected.status === 'unlogged' ? (
                 <Text style={styles.detail}>No food recorded.</Text>
               ) : (
@@ -231,7 +238,6 @@ export function MonthlyProgressScreen({
                 <View key={entry.id} style={styles.entry}>
                   <View style={styles.entryTitle}>
                     <Text style={styles.label}>{entry.food.name}</Text>
-                    <Text style={styles.small}>Added from Foods</Text>
                   </View>
                   <View style={styles.entryValues}>
                     <Text style={styles.label}>{entry.grams} g</Text>
@@ -277,11 +283,13 @@ export function MonthlyProgressScreen({
           </Card>
         </>
       )}
-      {plan && <PlanHealthNotice plan={plan} today={today} onReview={onReviewPlan} />}
+      {plan && !measurementOpen && (
+        <PlanHealthNotice plan={plan} today={today} onReview={onReviewPlan} />
+      )}
       {plan ? (
         <>
           <Button
-            label={measurementOpen ? 'Close measurement form' : 'Add measurement'}
+            label={measurementOpen ? 'Close' : 'Add measurement'}
             variant="secondary"
             onPress={() => setMeasurementOpen(!measurementOpen)}
           />
@@ -298,7 +306,7 @@ export function MonthlyProgressScreen({
 
 const styles = StyleSheet.create({
   screen: { gap: 16 },
-  heading: { color: colors.ink, fontSize: 22, fontWeight: '700' },
+  heading: { color: colors.ink, fontSize: 24, fontWeight: '700' },
   monthNav: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   monthButton: {
     width: 44,
@@ -315,6 +323,7 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: 12 },
   stat: {
     flex: 1,
+    minWidth: 0,
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
@@ -322,7 +331,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     gap: 5,
   },
-  statValue: { color: colors.ink, fontSize: 26, fontWeight: '700' },
+  statValue: { color: colors.ink, fontSize: 24, fontWeight: '700' },
   detail: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   small: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   sectionTitle: { color: colors.ink, fontSize: 15, fontWeight: '600' },
@@ -359,7 +368,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: 10,
   },
-  entryTitle: { flex: 1, gap: 3 },
-  entryValues: { alignItems: 'flex-end', gap: 3 },
+  entryTitle: { flex: 1, minWidth: 0, gap: 3 },
+  entryValues: { alignItems: 'flex-end', gap: 3, flexShrink: 1, minWidth: 0, maxWidth: '40%' },
   measurement: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
 });

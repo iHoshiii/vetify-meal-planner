@@ -185,6 +185,8 @@ it('expands read-only built-in macros and notes through View without Copy/Edit a
   expect(screen.getByText('Per 100 g (estimated)', { exact: true })).toBeTruthy();
   expect(screen.getByText('165 kcal / 100 g', { exact: true })).toBeTruthy();
   expect(screen.getByText('31 g', { exact: true })).toBeTruthy();
+  expect(screen.queryByText(builtin.details.notes, { exact: true })).toBeNull();
+  click(`Food details: ${builtin.food.name}`);
   expect(screen.getByText(builtin.details.notes, { exact: true })).toBeTruthy();
   expect(screen.queryByRole('textbox', { name: 'Food name' })).toBeNull();
   expect(screen.queryByRole('textbox', { name: 'Protein, g' })).toBeNull();
@@ -201,7 +203,7 @@ it('previews a 50 g portion and submits a snapshot request without making macros
   click(`Add: ${defaultIngredientCatalog[0].food.name}`);
   expect((input('Amount, g') as HTMLInputElement).value).toBe('');
   fireEvent.change(input('Amount, g'), { target: { value: '50' } });
-  expect(screen.getByText('82.5 kcal in this portion', { exact: true })).toBeTruthy();
+  expect(screen.getByText('82.5 kcal', { exact: true })).toBeTruthy();
   expect(screen.getByText('15.5 g', { exact: true })).toBeTruthy();
   expect(screen.getByText('1.8 g', { exact: true })).toBeTruthy();
   for (const label of ['Energy, kcal', 'Protein, g', 'Fat, g', 'Carbs, g'])

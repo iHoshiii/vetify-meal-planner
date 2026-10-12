@@ -35,9 +35,7 @@ export function PlanHealthNotice({
     return null;
   return (
     <View style={{ gap: 8 }}>
-      <Notice tone="warning">
-        Review the plan after weight or condition changes, or an older measurement.
-      </Notice>
+      <Notice tone="warning">Update the plan with a current weight and body condition.</Notice>
       <Button label="Review plan" variant="secondary" compact onPress={onReview} />
     </View>
   );

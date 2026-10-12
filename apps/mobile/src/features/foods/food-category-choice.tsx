@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../components/ui';
 
 export function FoodCategoryChoice<T extends string>({
@@ -15,37 +15,33 @@ export function FoodCategoryChoice<T extends string>({
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.options}
-      >
-        <View accessibilityRole="radiogroup" style={styles.options}>
-          {options.map((option) => (
-            <Pressable
-              key={option.value}
-              accessibilityRole="radio"
-              accessibilityLabel={`${label}: ${option.label}`}
-              accessibilityState={{ checked: option.value === value }}
-              onPress={() => onChange(option.value)}
-              style={[styles.option, option.value === value && styles.selected]}
-            >
-              <Text style={[styles.optionText, option.value === value && styles.selectedText]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+      <View accessibilityRole="radiogroup" style={styles.options}>
+        {options.map((option) => (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityLabel={`${label}: ${option.label}`}
+            accessibilityState={{ checked: option.value === value }}
+            onPress={() => onChange(option.value)}
+            style={[styles.option, option.value === value && styles.selected]}
+          >
+            <Text style={[styles.optionText, option.value === value && styles.selectedText]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  field: { gap: 7 },
+  field: { gap: 7, minWidth: 0 },
   label: { color: colors.ink, fontSize: 14, fontWeight: '600' },
-  options: { flexDirection: 'row', gap: 8 },
+  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: {
+    minWidth: 0,
+    maxWidth: '100%',
     minHeight: 44,
     paddingHorizontal: 13,
     paddingVertical: 11,
@@ -55,6 +51,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selected: { backgroundColor: colors.soft, borderColor: colors.primary },
-  optionText: { color: colors.ink, fontSize: 14 },
+  optionText: { color: colors.ink, fontSize: 14, flexShrink: 1 },
   selectedText: { color: colors.primary, fontWeight: '600' },
 });

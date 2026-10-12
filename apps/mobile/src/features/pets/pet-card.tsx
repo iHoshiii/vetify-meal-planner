@@ -28,12 +28,8 @@ export function PetCard({ pet, today, pending, onOpen, onEdit }: Props) {
           <AppIcon name="paw" size={22} color={colors.primary} />
         </View>
         <View style={styles.identity}>
-          <Text style={styles.name} numberOfLines={1}>
-            {pet.name}
-          </Text>
-          <Text style={styles.species} numberOfLines={1}>
-            {[species, pet.breed].filter(Boolean).join(' · ')}
-          </Text>
+          <Text style={styles.name}>{pet.name}</Text>
+          <Text style={styles.species}>{[species, pet.breed].filter(Boolean).join(' · ')}</Text>
         </View>
       </View>
       <View style={styles.details}>

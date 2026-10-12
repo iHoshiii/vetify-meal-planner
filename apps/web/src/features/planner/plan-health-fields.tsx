@@ -63,6 +63,28 @@ export function HealthFields({ pet, value, set }: Props) {
           </a>
         </label>
       </div>
+      {pet.species === 'cat' && (
+        <label className={label}>
+          Muscle condition
+          <select
+            className={field}
+            value={value.muscleCondition ?? ''}
+            onChange={(event) =>
+              update({
+                muscleCondition: (event.target.value ||
+                  undefined) as MealPlanInput['muscleCondition'],
+              })
+            }
+          >
+            <option value="">Choose muscle condition</option>
+            <option value="normal">Normal</option>
+            <option value="mild-loss">Mild loss</option>
+            <option value="moderate-loss">Moderate loss</option>
+            <option value="severe-loss">Severe loss</option>
+            <option value="unknown">Not sure</option>
+          </select>
+        </label>
+      )}
       <div className="rounded-xl bg-teal-50 p-4">
         <p className="text-sm font-bold text-teal-950">How should this plan be made?</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">

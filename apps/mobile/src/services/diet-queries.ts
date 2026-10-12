@@ -16,9 +16,14 @@ export function useDietEntries(petId: string, date: string) {
   });
 }
 
-export function useDietAssessment(petId: string) {
+export function useDietAssessment(
+  petId: string,
+  today?: string,
+  petUpdatedAt?: string,
+  timeZone?: string,
+) {
   return useQuery({
-    queryKey: ownerQueryKey('diet-assessment', petId),
+    queryKey: ownerQueryKey('diet-assessment', petId, today, petUpdatedAt, timeZone),
     queryFn: () => getDietAssessment(petId),
   });
 }
@@ -52,6 +57,9 @@ export function useSaveDietAssessment() {
   return useMutation({
     mutationFn: saveDietAssessment,
     onSuccess: (_, input: DietAssessmentInput) =>
-      client.invalidateQueries({ queryKey: ownerQueryKey('diet-assessment', input.petId) }),
+      Promise.all([
+        client.invalidateQueries({ queryKey: ownerQueryKey('diet-assessment', input.petId) }),
+        client.invalidateQueries({ queryKey: ownerQueryKey('monthly-progress', input.petId) }),
+      ]),
   });
 }

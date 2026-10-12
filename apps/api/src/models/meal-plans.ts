@@ -1,4 +1,5 @@
 import type { MealPlan, MealPlanInput, MealPlanPreview } from '@vetify/planner-shared/meal-plans';
+import type { Pet } from '@vetify/planner-shared/pets';
 import { ObjectId, type Collection, type IndexDescription } from 'mongodb';
 
 import { getDb } from '../config/db.js';
@@ -10,6 +11,7 @@ export const MEAL_PLAN_INDEXES: IndexDescription[] = [
 ];
 
 type PlanDocument = Omit<MealPlanInput, 'petId'> & {
+  petSnapshot?: Pet;
   _id: ObjectId;
   ownerId: string;
   petId: ObjectId;
@@ -58,6 +60,7 @@ export async function saveMealPlan(
   petName: string,
   petWeightKg: number,
   timeZone: string,
+  petSnapshot?: Pet,
 ): Promise<MealPlan> {
   const previousRequest = await collection().findOne({ ownerId, requestId: input.requestId });
   if (previousRequest) return view(previousRequest);
@@ -74,6 +77,7 @@ export async function saveMealPlan(
     preview,
     version: (last?.version ?? 0) + 1,
     timeZone,
+    ...(petSnapshot ? { petSnapshot } : {}),
     activeFrom: now,
     endedAt: null,
     createdAt: now,

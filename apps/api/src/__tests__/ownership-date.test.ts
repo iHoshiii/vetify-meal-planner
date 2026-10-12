@@ -33,6 +33,7 @@ describe('standalone planner data boundaries', () => {
     expect((await getDb().listCollections().toArray()).map((entry) => entry.name).sort()).toEqual([
       'diet_assessments',
       'diet_entries',
+      'diet_target_snapshots',
       'feeding_logs',
       'meal_plans',
       'nutrition_observations',

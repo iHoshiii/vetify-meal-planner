@@ -34,8 +34,19 @@ vi.mock('../../auth/session', () => ({
 }));
 vi.mock('../../components/app-icon', () => ({ AppIcon: () => null }));
 vi.mock('./diet-assessment-form', () => ({
-  DietAssessmentForm: () =>
-    createElement('div', { role: 'form', 'aria-label': 'Daily assessment' }),
+  DietAssessmentForm: ({
+    onSave,
+    onCancel,
+  }: {
+    onSave: (assessment: DailyDietAssessment) => void;
+    onCancel: () => void;
+  }) =>
+    createElement(
+      'div',
+      { role: 'form', 'aria-label': 'Daily assessment' },
+      createElement('button', { onClick: () => onSave(catAssessment) }, 'Save assessment'),
+      createElement('button', { onClick: onCancel }, 'Cancel'),
+    ),
 }));
 vi.mock('react-native', () => ({
   View: ({ children, accessibilityLabel }: { children: ReactNode; accessibilityLabel?: string }) =>
@@ -106,6 +117,18 @@ const assessment: DailyDietAssessment = {
   prescribedDiet: false,
   appetiteChange: false,
 };
+const cat: Pet = {
+  ...pet,
+  id: 'cccccccccccccccccccccccc',
+  name: 'Nori',
+  species: 'cat',
+  weightKg: 4,
+};
+const catAssessment: DailyDietAssessment = {
+  ...assessment,
+  weightKg: 4,
+  muscleCondition: 'normal',
+};
 const chicken: DietEntry = {
   ...defaultIngredientCatalog[0],
   id: 'bbbbbbbbbbbbbbbbbbbbbbbb',
@@ -132,6 +155,7 @@ beforeEach(() => {
   mocks.entries.mockReturnValue(loaded([chicken]));
   mocks.assessment.mockReturnValue(loaded(assessment));
   mocks.feeding.mockReturnValue([]);
+  mocks.save.mockReset();
 });
 afterEach(cleanup);
 
@@ -147,7 +171,7 @@ it('shows the daily reference and scaled remaining values without requiring a me
   expect(
     screen.getByLabelText('Fat min.: target 5.2 g, added 1.8 g, remaining 3.4 g'),
   ).toBeTruthy();
-  expect(screen.getByLabelText('Carbs: target — g, added 0 g, remaining — g')).toBeTruthy();
+  expect(screen.getByLabelText('Carbs: target N/A g, added 0 g, remaining N/A g')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Add food' }));
   expect(onFoods).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: `Remove: ${chicken.food.name}` }));
@@ -185,16 +209,89 @@ it('includes current and earlier same-day feeding once and keeps their missing m
     screen.getByLabelText('Calories: target 375.7 kcal, added 128.5 kcal, remaining 247.2 kcal'),
   ).toBeTruthy();
   expect(
-    screen.getByLabelText('Protein min.: target 19.6 g, added ? g, remaining — g'),
+    screen.getByLabelText('Protein min.: target 19.6 g, added Unknown g, remaining N/A g'),
   ).toBeTruthy();
-  expect(screen.getByText('? includes a food with missing nutrition data.')).toBeTruthy();
+  expect(screen.queryByText('? includes a food with missing nutrition data.')).toBeNull();
+});
+
+it('projects a complete saved dog meal plan to its assessment fields before calculating a daily reference', () => {
+  const selectedPet = pet;
+  const confirmed = assessment;
+  const plan = {
+    ...confirmed,
+    id: 'dddddddddddddddddddddddd',
+    ownerId: 'owner',
+    requestId: 'stored-plan-request-id',
+    petId: selectedPet.id,
+    endedAt: null,
+    mode: 'estimate',
+    version: 1,
+    timeZone: 'Asia/Singapore',
+    food: { ...chicken.food, species: 'dog', calories: 3700 },
+    mealTimes: ['08:00', '18:00'],
+    extrasKcal: 0,
+    preview: { dailyKcal: 500 },
+  } as MealPlan;
+  mocks.assessment.mockReturnValue(loaded(null));
+  mocks.entries.mockReturnValue(loaded([]));
+  mocks.feeding.mockReturnValue([loaded([])]);
+  mount([plan], selectedPet);
+  const kcal = '375.7';
+  expect(
+    screen.getByLabelText(`Calories: target ${kcal} kcal, added 0 kcal, remaining ${kcal} kcal`),
+  ).toBeTruthy();
+  expect(mocks.assessment).toHaveBeenCalledWith(
+    selectedPet.id,
+    today,
+    selectedPet.updatedAt,
+    undefined,
+  );
+});
+
+it('does not invent normal muscle condition while projecting a legacy cat meal plan', () => {
+  const plan = {
+    ...assessment,
+    weightKg: 4,
+    id: 'dddddddddddddddddddddddd',
+    petId: cat.id,
+    endedAt: null,
+    timeZone: 'Asia/Singapore',
+    food: { ...chicken.food, species: 'cat', calories: 3700 },
+  } as MealPlan;
+  mocks.assessment.mockReturnValue(loaded(null));
+  mocks.entries.mockReturnValue(loaded([]));
+  mocks.feeding.mockReturnValue([loaded([])]);
+  mount([plan], cat);
+  expect(
+    screen.getByLabelText('Calories: target N/A kcal, added 0 kcal, remaining N/A kcal'),
+  ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Set target' })).toBeTruthy();
+});
+
+it('requires a current server cat assessment even when a saved plan has normal muscle condition', () => {
+  const plan = {
+    ...catAssessment,
+    id: 'dddddddddddddddddddddddd',
+    petId: cat.id,
+    endedAt: null,
+    timeZone: 'Asia/Singapore',
+    food: { ...chicken.food, species: 'cat', calories: 3700 },
+  } as MealPlan;
+  mocks.assessment.mockReturnValue(loaded(null));
+  mocks.entries.mockReturnValue(loaded([]));
+  mocks.feeding.mockReturnValue([loaded([])]);
+  mount([plan], cat);
+  expect(
+    screen.getByLabelText('Calories: target N/A kcal, added 0 kcal, remaining N/A kcal'),
+  ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Set target' })).toBeTruthy();
 });
 
 it('allows a food diary with unconfirmed targets and opens the explicit assessment', () => {
   mocks.assessment.mockReturnValue(loaded(null));
   mount();
   expect(
-    screen.getByLabelText('Calories: target — kcal, added 82.5 kcal, remaining — kcal'),
+    screen.getByLabelText('Calories: target N/A kcal, added 82.5 kcal, remaining N/A kcal'),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Set target' }));
   expect(screen.getByRole('form', { name: 'Daily assessment' })).toBeTruthy();
@@ -216,16 +313,84 @@ it('does not show incomplete loading or failed intake as zero', () => {
   expect(mocks.refetch).toHaveBeenCalledTimes(2);
 });
 
-it('keeps a cat diary available without applying the dog target or setup', () => {
-  const cat = { ...pet, species: 'cat' } as Pet;
+it('keeps a legacy cat diary available while requiring muscle confirmation for a feline target', () => {
+  mocks.assessment.mockReturnValue(loaded({ ...assessment, weightKg: 4 }));
   mocks.entries.mockReturnValue(
     loaded([{ ...chicken, food: { ...chicken.food, name: 'Cat food', species: 'cat' } }]),
   );
   mount([], cat);
   expect(screen.getByText('Cat food')).toBeTruthy();
   expect(
-    screen.getByLabelText('Calories: target — kcal, added 82.5 kcal, remaining — kcal'),
+    screen.getByLabelText('Calories: target N/A kcal, added 82.5 kcal, remaining N/A kcal'),
   ).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Set target' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+  expect(screen.getByRole('form', { name: 'Daily assessment' })).toBeTruthy();
+});
+
+it('shows feline calorie and minimum comparisons with the confirmed cat assessment', () => {
+  mocks.assessment.mockReturnValue(loaded(catAssessment));
+  mocks.entries.mockReturnValue(
+    loaded([{ ...chicken, petId: cat.id, food: { ...chicken.food, species: 'cat' } }]),
+  );
+  mount([], cat);
+  expect(
+    screen.getByLabelText('Calories: target 237.6 kcal, added 82.5 kcal, remaining 155.1 kcal'),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText('Protein min.: target 19.8 g, added 15.5 g, remaining 4.3 g'),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText('Fat min.: target 5.3 g, added 1.8 g, remaining 3.5 g'),
+  ).toBeTruthy();
+  expect(screen.getByLabelText('Carbs: target N/A g, added 0 g, remaining N/A g')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Daily target details' }));
+  expect(screen.getByText('Weight: 4 kg. Targets are starting estimates.')).toBeTruthy();
+});
+
+it('saves a confirmed cat assessment under the selected pet and returns to the tracker', () => {
+  mocks.assessment.mockReturnValue(loaded(null));
+  mocks.save.mockImplementation((_input: unknown, options: { onSuccess: () => void }) => {
+    mocks.assessment.mockReturnValue(loaded(catAssessment));
+    options.onSuccess();
+  });
+  mount([], cat);
+  fireEvent.click(screen.getByRole('button', { name: 'Set target' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save assessment' }));
+  expect(mocks.save).toHaveBeenCalledExactlyOnceWith(
+    { petId: cat.id, ...catAssessment },
+    { onSuccess: expect.any(Function) },
+  );
+  expect(screen.queryByRole('form')).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Tracker' })).toBeTruthy();
+});
+
+it('resets setup and calculation details when switching between dog and cat workspaces', () => {
+  const rendered = mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Daily target details' }));
+  expect(screen.getByText('Weight: 6 kg. Targets are starting estimates.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+  expect(screen.getByRole('form', { name: 'Daily assessment' })).toBeTruthy();
+  mocks.assessment.mockReturnValue(loaded(catAssessment));
+  mocks.entries.mockReturnValue(loaded([]));
+  rendered.rerender(
+    createElement(DailyDietTracker, { pet: cat, today, plans: [], onFoods: rendered.onFoods }),
+  );
+  expect(screen.queryByRole('form')).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Tracker' })).toBeTruthy();
+  expect(
+    screen.getByLabelText('Calories: target 237.6 kcal, added 0 kcal, remaining 237.6 kcal'),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Targets are starting estimates/)).toBeNull();
+  expect(mocks.entries).toHaveBeenLastCalledWith(cat.id, today);
+  fireEvent.click(screen.getByRole('button', { name: 'Daily target details' }));
+  expect(screen.getByText('Weight: 4 kg. Targets are starting estimates.')).toBeTruthy();
+  mocks.assessment.mockReturnValue(loaded(assessment));
+  rendered.rerender(
+    createElement(DailyDietTracker, { pet, today, plans: [], onFoods: rendered.onFoods }),
+  );
+  expect(screen.queryByText(/Targets are starting estimates/)).toBeNull();
+  expect(
+    screen.getByLabelText('Calories: target 375.7 kcal, added 0 kcal, remaining 375.7 kcal'),
+  ).toBeTruthy();
 });

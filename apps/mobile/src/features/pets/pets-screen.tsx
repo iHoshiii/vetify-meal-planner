@@ -65,7 +65,6 @@ export function PetsScreen({ today, onOpenPet }: { today: string; onOpenPet: (pe
               <AppIcon name="paw" size={28} color={colors.primary} />
             </View>
             <Text style={styles.emptyTitle}>Add your first pet</Text>
-            <Text style={styles.subtitle}>Set up their meals in a few steps.</Text>
             <View style={styles.emptyAction}>
               <Button
                 label="Add pet"
@@ -94,9 +93,8 @@ export function PetsScreen({ today, onOpenPet }: { today: string; onOpenPet: (pe
 const styles = StyleSheet.create({
   container: { gap: 14 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  title: { color: colors.ink, fontSize: 23, fontWeight: '700', flex: 1 },
-  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  empty: { alignItems: 'center', paddingVertical: 24, gap: 10 },
+  title: { color: colors.ink, fontSize: 24, fontWeight: '700', flex: 1, minWidth: 0 },
+  empty: { alignItems: 'center', paddingVertical: 12, gap: 10 },
   emptyIcon: {
     width: 60,
     height: 60,

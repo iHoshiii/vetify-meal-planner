@@ -14,6 +14,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'r
 import { ownerQueryKey } from '../../auth/session';
 import { AppIcon } from '../../components/app-icon';
 import { Button, Card, ErrorMessage, colors } from '../../components/ui';
+import { feedingMessage, shortDate } from '../../components/presentation';
 import {
   useDietAssessment,
   useDietEntries,
@@ -23,21 +24,29 @@ import {
 import { getFeedingLogs } from '../../services/meal-plans.service';
 import { DietAssessmentForm } from './diet-assessment-form';
 
-export function DailyDietTracker({
-  pet,
-  today,
-  plans,
-  onFoods,
-  onAssessmentEditingChange,
-}: {
+type DailyDietTrackerProps = {
   pet: Pet;
   today: string;
+  timeZone?: string;
   plans: MealPlan[];
   onFoods: () => void;
   onAssessmentEditingChange?: (editing: boolean) => void;
-}) {
+};
+
+export function DailyDietTracker(props: DailyDietTrackerProps) {
+  return <Tracker key={`${props.pet.id}:${props.pet.species}`} {...props} />;
+}
+
+function Tracker({
+  pet,
+  today,
+  timeZone,
+  plans,
+  onFoods,
+  onAssessmentEditingChange,
+}: DailyDietTrackerProps) {
   const diary = useDietEntries(pet.id, today);
-  const assessment = useDietAssessment(pet.id);
+  const assessment = useDietAssessment(pet.id, today, pet.updatedAt, timeZone);
   const save = useSaveDietAssessment();
   const remove = useRemoveDietEntry(pet.id, today);
   const [settingUp, setSettingUp] = useState(false);
@@ -55,7 +64,23 @@ export function DailyDietTracker({
     })),
   });
   const activePlan = plans.find((plan) => !plan.endedAt);
-  const confirmed: DailyDietAssessment | null = assessment.data ?? activePlan ?? null;
+  const confirmed: DailyDietAssessment | null =
+    assessment.data ??
+    (pet.species === 'dog' && activePlan
+      ? {
+          weightKg: activePlan.weightKg,
+          weightMeasuredOn: activePlan.weightMeasuredOn,
+          conditionScore: activePlan.conditionScore,
+          stableWeight: activePlan.stableWeight,
+          growing: activePlan.growing,
+          healthConcern: activePlan.healthConcern,
+          prescribedDiet: activePlan.prescribedDiet,
+          appetiteChange: activePlan.appetiteChange,
+          ...(activePlan.muscleCondition === undefined
+            ? {}
+            : { muscleCondition: activePlan.muscleCondition }),
+        }
+      : null);
   const targets = estimateDailyDietTargets(pet, today, confirmed);
   const feedingRows = relevantPlans.flatMap((plan, index) =>
     (feeding[index].data ?? []).map((log) => legacyFeedingNutrition(plan, log)),
@@ -94,9 +119,6 @@ export function DailyDietTracker({
           <Text accessibilityRole="header" style={styles.title}>
             Tracker
           </Text>
-          <Text style={styles.detail}>
-            {today} · {pet.name}
-          </Text>
         </View>
         <Button label="Add food" variant="secondary" compact onPress={onFoods} />
       </View>
@@ -120,7 +142,7 @@ export function DailyDietTracker({
           <Card>
             <View style={styles.header}>
               <Text style={styles.sectionTitle}>Daily target</Text>
-              {pet.species === 'dog' && (
+              {(pet.species === 'dog' || pet.species === 'cat') && (
                 <Button
                   label={confirmed ? 'Update' : 'Set target'}
                   variant="ghost"
@@ -133,13 +155,13 @@ export function DailyDietTracker({
               )}
             </View>
             <DailyDietTable summary={summary} />
-            {targets.status === 'estimated' ? (
-              <Text style={styles.detail}>
-                Protein and fat are minimum comparisons. Carbs are logged without a fixed target.
-              </Text>
-            ) : (
-              <Text style={styles.detail}>{targets.blockers[0]}</Text>
-            )}
+            {targets.status !== 'estimated' &&
+              targets.blockers[0] !==
+                'Confirm a current weight and feeding assessment to estimate daily targets.' && (
+                <Text style={styles.detail}>
+                  {feedingMessage(targets.blockers[0] ?? 'Review the feeding plan.')}
+                </Text>
+              )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Daily target details"
@@ -147,24 +169,24 @@ export function DailyDietTracker({
               onPress={() => setDetailsOpen(!detailsOpen)}
               style={styles.detailsButton}
             >
-              <Text style={styles.link}>How it's calculated</Text>
+              <Text style={styles.link}>Target details</Text>
               <AppIcon name="chevron-down" size={14} />
             </Pressable>
             {detailsOpen && (
               <View style={styles.screen}>
                 {targets.status === 'estimated' && (
                   <Text style={styles.detail}>
-                    70 × {targets.weightKg} kg^0.75 × {targets.factor}. {targets.reference}.
+                    Weight: {targets.weightKg} kg. Targets are starting estimates.
                   </Text>
                 )}
                 {targets.blockers.map((blocker) => (
                   <Text key={blocker} style={styles.detail}>
-                    {blocker}
+                    {feedingMessage(blocker)}
                   </Text>
                 ))}
                 <Text style={styles.detail}>
-                  Food values are estimates. These comparisons do not confirm that a diet is
-                  complete.
+                  Protein and fat are minimums. Carbs have no fixed target. Meeting these values
+                  does not confirm a complete diet.
                 </Text>
                 <View style={styles.header}>
                   <Button
@@ -185,11 +207,9 @@ export function DailyDietTracker({
           </Card>
           <View style={styles.header}>
             <Text style={styles.sectionTitle}>Today's diet</Text>
-            <Text style={styles.detail}>{(diary.data ?? []).length} foods</Text>
+            <Text style={styles.detail}>{shortDate(today)}</Text>
           </View>
-          {(diary.data ?? []).length === 0 && (
-            <Text style={styles.detail}>Choose a food and add its gram portion from Foods.</Text>
-          )}
+          {(diary.data ?? []).length === 0 && <Text style={styles.detail}>No food recorded.</Text>}
           {(diary.data ?? []).map((entry) => (
             <Card key={entry.id}>
               <View style={styles.header}>
@@ -214,7 +234,7 @@ export function DailyDietTracker({
             </Card>
           ))}
           {feedingRows.length > 0 && (
-            <Text style={styles.detail}>Schedule logs are included. Record each portion once.</Text>
+            <Text style={styles.detail}>Includes scheduled meals. Log each portion once.</Text>
           )}
           <ErrorMessage message={remove.error?.message} />
         </>
@@ -225,7 +245,7 @@ export function DailyDietTracker({
 
 export function DailyDietTable({ summary }: { summary: DailyDietSummary }) {
   const display = (value: number | null) =>
-    value === null ? '—' : String(Math.round(value * 10) / 10);
+    value === null ? 'N/A' : String(Math.round(value * 10) / 10);
   return (
     <View style={styles.table}>
       <View style={styles.tableRow}>
@@ -245,7 +265,7 @@ export function DailyDietTable({ summary }: { summary: DailyDietSummary }) {
         ] as const
       ).map(([key, label, unit]) => {
         const row = summary[key];
-        const added = row.total === null ? '?' : display(row.total);
+        const added = row.total === null ? 'Unknown' : display(row.total);
         const remaining =
           row.remaining !== null && row.remaining < 0
             ? `${display(-row.remaining)} over`
@@ -266,9 +286,6 @@ export function DailyDietTable({ summary }: { summary: DailyDietSummary }) {
           </View>
         );
       })}
-      {Object.values(summary).some((row) => row.missingEntries) && (
-        <Text style={styles.detail}>? includes a food with missing nutrition data.</Text>
-      )}
     </View>
   );
 }
@@ -296,6 +313,6 @@ const styles = StyleSheet.create({
   nutrientName: { color: colors.ink, fontSize: 12, fontWeight: '500' },
   unit: { color: colors.muted, fontSize: 10 },
   tableHeading: { flex: 1, fontSize: 10, color: colors.muted, textAlign: 'right' },
-  tableValue: { flex: 1, fontSize: 13, color: colors.ink, textAlign: 'right' },
+  tableValue: { flex: 1, minWidth: 0, fontSize: 12, color: colors.ink, textAlign: 'right' },
   remaining: { color: colors.primary, fontWeight: '600' },
 });

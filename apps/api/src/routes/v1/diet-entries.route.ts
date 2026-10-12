@@ -1,6 +1,6 @@
 import { dietEntryInputSchema, type DietEntryInput } from '@vetify/planner-shared/daily-diet';
-import { packagedFoodCatalog, type CatalogFood } from '@vetify/planner-shared/foods';
-import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
+import type { CatalogFood } from '@vetify/planner-shared/foods';
+import { defaultFoodCatalog } from '@vetify/planner-shared/food-catalog';
 import { validCalendarDay } from '@vetify/planner-shared/planner-date';
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
@@ -43,9 +43,7 @@ router.post('/', validate(dietEntryInputSchema), async (req, res) => {
   if (previous) return ok(res, { entry: previous }, 201);
   let source: Pick<CatalogFood, 'food' | 'details'> | undefined;
   if (input.source === 'catalog') {
-    source = [...defaultIngredientCatalog, ...packagedFoodCatalog].find(
-      (food) => food.id === input.foodId,
-    );
+    source = defaultFoodCatalog.find((food) => food.id === input.foodId);
   } else {
     if (!isValidObjectId(input.foodId)) return fail(res, 400, 'Choose a valid saved food.');
     const saved = await findSavedFood(ownerId, new ObjectId(input.foodId));

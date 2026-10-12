@@ -28,8 +28,8 @@ export function App() {
       link.download = 'vetify-planner-export.json';
       link.click();
       URL.revokeObjectURL(url);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Export failed.');
+    } catch {
+      setError('Unable to export your data. Try again.');
     }
   }
   return (
@@ -43,14 +43,14 @@ export function App() {
             <PawPrint aria-hidden="true" />
             Vetify Planner
           </a>
-          <div className="flex items-center gap-4 text-sm">
-            <span>
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span className="min-w-0 max-w-full break-words">
               {getSession()?.user.name?.trim() || getSession()?.user.email || 'Your account'}
             </span>
             <button
               type="button"
               onClick={() => void download()}
-              className="flex items-center gap-1 text-teal-800"
+              className="flex min-h-11 shrink-0 items-center gap-1 text-teal-800"
             >
               <Download size={16} aria-hidden="true" />
               Export
@@ -58,7 +58,7 @@ export function App() {
             <button
               type="button"
               onClick={() => void logout().catch(() => {})}
-              className="flex items-center gap-1 text-teal-800"
+              className="flex min-h-11 shrink-0 items-center gap-1 text-teal-800"
             >
               <LogOut size={16} aria-hidden="true" />
               Log out
@@ -68,7 +68,7 @@ export function App() {
       </header>
       {!online && (
         <p role="status" className="bg-amber-100 p-3 text-center text-sm text-amber-950">
-          You are offline. Connect to view or save meals.
+          You are offline. Reconnect to continue.
         </p>
       )}
       {error && (
@@ -76,11 +76,7 @@ export function App() {
           {error}
         </p>
       )}
-      {online ? (
-        <PlannerPage />
-      ) : (
-        <main className="p-8 text-center">Your meal data stays online. Reconnect to continue.</main>
-      )}
+      {online && <PlannerPage />}
     </>
   );
 }

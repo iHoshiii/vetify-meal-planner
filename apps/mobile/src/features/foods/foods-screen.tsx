@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { randomUUID } from 'expo-crypto';
 import { portionNutrition, type DietEntryInput } from '@vetify/planner-shared/daily-diet';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { defaultFoodDetails, type FoodDetails, type FoodLabel } from '@vetify/planner-shared/foods';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { AppIcon } from '../../components/app-icon';
 import { Button, Card, ErrorMessage, Field, colors } from '../../components/ui';
+import { foodNotesText } from '../../components/presentation';
 import { useFoods, useSaveFood } from '../../services/food-queries';
 import { useAddDietEntry } from '../../services/diet-queries';
 import { accountToday } from '../../auth/session';
@@ -120,7 +121,6 @@ export function FoodsScreen({
                   <AppIcon name="bowl" size={28} />
                 </View>
                 <Text style={styles.emptyTitle}>Add your pet's food</Text>
-                <Text style={styles.detail}>Save an ingredient or package label.</Text>
                 <View style={styles.emptyAction}>
                   <Button
                     label="Add food"
@@ -179,10 +179,7 @@ export function FoodsScreen({
           ))}
           {filteredCatalog.length > 0 && (
             <View style={styles.catalogHeading}>
-              <Text style={styles.sectionTitle}>Built-in foods</Text>
-              <Text style={styles.detail}>
-                Estimated per 100 g. Ingredients are not complete diets.
-              </Text>
+              <Text style={styles.sectionTitle}>Food library</Text>
             </View>
           )}
           {filteredCatalog.map((item) => (
@@ -228,6 +225,7 @@ function FoodCard({
   onSaveLabel?: () => void;
 }) {
   const [open, setOpen] = useState<'view' | 'add' | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [grams, setGrams] = useState('');
   const [added, setAdded] = useState(false);
   const requestId = useRef<string | null>(null);
@@ -342,7 +340,7 @@ function FoodCard({
                   nutrition.kcal === null ? null : Math.round(nutrition.kcal * 10) / 10,
                   ' kcal',
                 )}
-                {open === 'add' ? ' in this portion' : ' / 100 g'}
+                {open === 'add' ? '' : ' / 100 g'}
               </Text>
               <View style={styles.macroRow}>
                 {(
@@ -365,7 +363,32 @@ function FoodCard({
           {open === 'view' && (
             <>
               {!ingredient && <Text style={styles.detail}>{foodCalories(food)}</Text>}
-              {details.notes && <Text style={styles.detail}>{details.notes}</Text>}
+              <Text style={styles.detail}>
+                {ingredient
+                  ? 'Supplemental food'
+                  : food.adequacy === 'complete'
+                    ? 'Complete food (label)'
+                    : 'Completeness not confirmed'}
+              </Text>
+              {details.notes && (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Food details: ${food.name}`}
+                    accessibilityState={{ expanded: notesOpen }}
+                    onPress={() => setNotesOpen(!notesOpen)}
+                    style={styles.notesButton}
+                  >
+                    <Text style={styles.notesLabel}>Preparation and notes</Text>
+                    <AppIcon name="chevron-down" size={14} />
+                  </Pressable>
+                  {notesOpen && (
+                    <Text style={styles.detail}>
+                      {foodNotesText(details.notes, entrySource?.source === 'catalog')}
+                    </Text>
+                  )}
+                </>
+              )}
               {onEdit && (
                 <Button
                   label="Edit food"
@@ -419,7 +442,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, fontSize: 24, fontWeight: '700', color: colors.ink },
+  title: { flex: 1, minWidth: 0, fontSize: 24, fontWeight: '700', color: colors.ink },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.ink, marginTop: 6 },
   catalogHeading: { gap: 6 },
   empty: { alignItems: 'center', paddingVertical: 20, gap: 10 },
@@ -438,6 +461,8 @@ const styles = StyleSheet.create({
   cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   foodActions: { width: 68, gap: 6 },
   expanded: { gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  notesButton: { flexDirection: 'row', gap: 6, alignItems: 'center', minHeight: 44 },
+  notesLabel: { color: colors.primary, fontSize: 13, flexShrink: 1 },
   identity: { flex: 1, minWidth: 0, gap: 4 },
   foodName: { color: colors.ink, fontSize: 16, fontWeight: '600' },
   current: { color: colors.primary, fontSize: 12, fontWeight: '600' },
