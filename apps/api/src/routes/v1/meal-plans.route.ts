@@ -11,6 +11,7 @@ import { ObjectId } from 'mongodb';
 import { validate } from '../../middleware/validate.js';
 import { listFeedingLogs, saveFeedingLog } from '../../models/feeding-logs.js';
 import { findMealPlan, listMealPlans, saveMealPlan } from '../../models/meal-plans.js';
+import { captureDietTargetSnapshots } from '../../models/diet-target-snapshots.js';
 import { isValidObjectId } from '../../models/object-id.js';
 import { findPet } from '../../models/pets.js';
 import { fail, ok } from '../../utils/response.js';
@@ -54,7 +55,41 @@ router.post('/', validate(mealPlanInputSchema), async (req, res) => {
     data.pet.name,
     input.weightKg,
     await accountTimeZone(req),
+    data.pet.species === 'cat' ? data.pet : undefined,
   );
+  if (plan.petSnapshot?.species === 'cat' && plan.mode === 'estimate') {
+    const {
+      weightKg,
+      weightMeasuredOn,
+      conditionScore,
+      stableWeight,
+      growing,
+      healthConcern,
+      prescribedDiet,
+      appetiteChange,
+      muscleCondition,
+    } = plan;
+    const confirmedOn = todayInTimeZone(plan.timeZone, new Date(plan.createdAt));
+    const assessment = {
+      weightKg,
+      weightMeasuredOn,
+      conditionScore,
+      stableWeight,
+      growing,
+      healthConcern,
+      prescribedDiet,
+      appetiteChange,
+      muscleCondition,
+    };
+    await captureDietTargetSnapshots(
+      data.ownerId,
+      plan.petSnapshot,
+      confirmedOn,
+      plan.timeZone,
+      assessment,
+      { planId: plan.id, recordedAt: plan.createdAt },
+    );
+  }
   return res.status(201).json({ plan });
 });
 

@@ -1,8 +1,17 @@
 import { z } from 'zod';
 import { validCalendarDay } from './planner-date.js';
+import type { Pet } from './pets.js';
 
 const date = z.string().refine(validCalendarDay, 'Enter a real date');
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+export const muscleConditionSchema = z.enum([
+  'normal',
+  'mild-loss',
+  'moderate-loss',
+  'severe-loss',
+  'unknown',
+]);
 
 export const mealPlanInputSchema = z.object({
   requestId: z
@@ -20,6 +29,7 @@ export const mealPlanInputSchema = z.object({
   healthConcern: z.boolean(),
   prescribedDiet: z.boolean(),
   appetiteChange: z.boolean(),
+  muscleCondition: muscleConditionSchema.optional(),
   food: z.object({
     name: z.string().trim().min(2).max(120),
     form: z.enum(['dry', 'wet', 'other']),
@@ -51,6 +61,7 @@ export type MealPlanPreview = {
 };
 
 export type MealPlan = MealPlanInput & {
+  petSnapshot?: Pet;
   id: string;
   ownerId: string;
   petName: string;

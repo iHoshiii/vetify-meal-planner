@@ -3,6 +3,7 @@ import { z } from 'zod';
 const settings = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(8001),
+  HOST: z.string().min(1).default('127.0.0.1'),
   PLANNER_MONGODB_URI: z.string().min(1).default('mongodb://127.0.0.1:27018/vetify_meal_planner'),
   MAIN_API_URL: z.string().url().default('http://127.0.0.1:8002/api/v1'),
   ALLOWED_ORIGINS: z.string().default('http://127.0.0.1:5174'),

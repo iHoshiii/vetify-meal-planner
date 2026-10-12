@@ -6,15 +6,20 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 const database = await MongoMemoryServer.create();
 const children: ChildProcess[] = [];
 let stopping = false;
-function launch(script: string, cwd: string, env: NodeJS.ProcessEnv = {}) {
-  const child = spawn(process.execPath, [path.resolve(script)], {
+let shutdown: Promise<void> | undefined;
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => void stop());
+function launch(script: string, cwd: string, env: NodeJS.ProcessEnv = {}, args: string[] = []) {
+  const child = spawn(process.execPath, [path.resolve(script), ...args], {
     cwd: path.resolve(cwd),
     stdio: 'inherit',
     env: { ...process.env, NODE_ENV: 'development', ...env },
     windowsHide: true,
   });
   children.push(child);
-  child.on('error', (error) => console.error(error.message));
+  child.on('error', (error) => {
+    console.error(error.message);
+    void stop(1);
+  });
   child.on('exit', (code) => {
     if (!stopping) {
       console.error(`${script} stopped (${code})`);
@@ -53,28 +58,61 @@ try {
   console.error(error instanceof Error ? error.message : 'Could not start browser-test services');
   await stop(1);
 }
-const web = spawn(
-  process.execPath,
-  [path.resolve('node_modules/vite/bin/vite.js'), '--host', '127.0.0.1'],
+launch(
+  'node_modules/vite/bin/vite.js',
+  'apps/web',
   {
-    cwd: path.resolve('apps/web'),
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      VITE_MAIN_API_URL: '/main-api/v1',
-      VITE_PLANNER_API_URL: '/api/v1',
-      VITE_MAIN_LOGIN_URL: 'http://127.0.0.1:8002/login',
-    },
-    windowsHide: true,
+    VITE_MAIN_API_URL: '/main-api/v1',
+    VITE_PLANNER_API_URL: '/api/v1',
+    VITE_MAIN_LOGIN_URL: 'http://127.0.0.1:8002/login',
   },
+  ['--host', '127.0.0.1'],
 );
-children.push(web);
-async function stop(code = 0) {
-  if (stopping) return;
-  stopping = true;
-  for (const child of children) child.kill();
-  await database.stop();
-  process.exit(code);
+
+function stopChild(child: ChildProcess) {
+  if (!child.pid || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+    timer.unref();
+    child.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    child.kill();
+  });
 }
-for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => void stop());
+
+async function cleanDatabase() {
+  await database.stop({ doCleanup: false, force: false });
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await database.cleanup({ doCleanup: true, force: false });
+      return;
+    } catch (error) {
+      const transient =
+        error instanceof Error &&
+        'code' in error &&
+        ['EBUSY', 'EPERM', 'ENOTEMPTY'].includes(String(error.code));
+      if (!transient || attempt >= 9) throw error;
+      await pause(250);
+    }
+  }
+}
+
+function stop(code = 0) {
+  if (shutdown) return shutdown;
+  stopping = true;
+  shutdown = (async () => {
+    try {
+      await Promise.all(children.map(stopChild));
+      await cleanDatabase();
+    } catch (error) {
+      console.error(
+        error instanceof Error ? error.message : 'Could not stop browser-test services',
+      );
+      code = 1;
+    }
+    process.exit(code);
+  })();
+  return shutdown;
+}

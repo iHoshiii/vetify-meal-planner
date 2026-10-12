@@ -5,8 +5,8 @@ import { ensureIndexes } from './config/indexes.js';
 
 const config = loadConfig();
 await ensureIndexes(await connectDb(config.PLANNER_MONGODB_URI));
-const server = app.listen(config.PORT, '127.0.0.1', () => {
-  console.log(`Planner API listening at http://localhost:${config.PORT}`);
+const server = app.listen(config.PORT, config.HOST, () => {
+  console.log(`Planner API listening at http://${config.HOST}:${config.PORT}`);
 });
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, () => {

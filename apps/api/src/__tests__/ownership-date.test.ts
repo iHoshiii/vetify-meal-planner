@@ -31,10 +31,14 @@ describe('standalone planner data boundaries', () => {
     expect(ownExport.body.pets[0]._id).toBe(created.body.pet.id);
     expect(otherExport.body.pets).toEqual([]);
     expect((await getDb().listCollections().toArray()).map((entry) => entry.name).sort()).toEqual([
+      'diet_assessments',
+      'diet_entries',
+      'diet_target_snapshots',
       'feeding_logs',
       'meal_plans',
       'nutrition_observations',
       'pets',
+      'saved_foods',
     ]);
   });
   it('applies account calendar dates at opposing timezone boundaries', async () => {

@@ -5,7 +5,16 @@ import { actorOf } from './caller.js';
 const router = Router();
 router.get('/', async (req, res) => {
   const ownerId = actorOf(req).id;
-  const names = ['pets', 'meal_plans', 'feeding_logs', 'nutrition_observations'] as const;
+  const names = [
+    'pets',
+    'meal_plans',
+    'feeding_logs',
+    'nutrition_observations',
+    'saved_foods',
+    'diet_entries',
+    'diet_assessments',
+    'diet_target_snapshots',
+  ] as const;
   const entries = await Promise.all(
     names.map(
       async (name) => [name, await getDb().collection(name).find({ ownerId }).toArray()] as const,
