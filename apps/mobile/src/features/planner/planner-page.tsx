@@ -113,12 +113,7 @@ export default function PlannerPage({
       </ScreenActivity>
       <ScreenActivity value={active && tab === 'foods'}>
         <View style={{ flex: 1, display: tab === 'foods' ? 'flex' : 'none' }}>
-          <FoodsScreen
-            pet={pet}
-            today={today}
-            activeFood={activePlan?.food}
-            onPlanMeals={reviewPlan}
-          />
+          <FoodsScreen pet={pet} today={today} activeFood={activePlan?.food} />
         </View>
       </ScreenActivity>
       {tab === 'progress' && (

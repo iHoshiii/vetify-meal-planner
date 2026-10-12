@@ -59,6 +59,15 @@ describe('provided ingredient catalog', () => {
 });
 
 describe('custom food nutrition metadata', () => {
+  it('accepts optional https food photos while rejecting invalid links', () => {
+    const details = defaultFoodDetails();
+    expect(foodDetailsSchema.safeParse({ ...details, imageUrl: undefined }).success).toBe(true);
+    expect(
+      foodDetailsSchema.parse({ ...details, imageUrl: 'https://example.com/food.jpg' }).imageUrl,
+    ).toBe('https://example.com/food.jpg');
+    for (const imageUrl of ['http://example.com/food.jpg', 'not a URL'])
+      expect(foodDetailsSchema.safeParse({ ...details, imageUrl }).success).toBe(false);
+  });
   it('accepts older packaged inputs while preserving unknown nutrients as null', () => {
     const food = {
       ...defaultIngredientCatalog[0]!.food,
@@ -72,6 +81,7 @@ describe('custom food nutrition metadata', () => {
       category: null,
       nutritionPer100g: { kcal: null, proteinG: null, fatG: null, carbsG: null },
       notes: '',
+      imageUrl: null,
     });
     defaults.nutritionPer100g.proteinG = 10;
     expect(defaultFoodDetails().nutritionPer100g.proteinG).toBeNull();
