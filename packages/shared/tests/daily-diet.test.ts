@@ -69,6 +69,12 @@ const assessment: DailyDietAssessment = {
   appetiteChange: false,
 };
 const targets = { kcal: 430, proteinG: 19.35, fatG: 5.9125, carbsG: null };
+const cat: Pet = { ...pet, name: 'Nori', species: 'cat', weightKg: 4 };
+const catAssessment: DailyDietAssessment = {
+  ...assessment,
+  weightKg: 4,
+  muscleCondition: 'normal',
+};
 
 const plan: MealPlan = {
   ...assessment,
@@ -234,6 +240,25 @@ describe('food diary input boundaries', () => {
       dietAssessmentInputSchema.safeParse({ petId, ...assessment, conditionScore: 10 }).success,
     ).toBe(false);
   });
+
+  it('accepts optional muscle-condition evidence without interpreting a legacy omission as normal', () => {
+    const legacy = dietAssessmentInputSchema.parse({ petId, ...assessment });
+    expect(legacy.muscleCondition).toBeUndefined();
+    for (const muscleCondition of [
+      'normal',
+      'mild-loss',
+      'moderate-loss',
+      'severe-loss',
+      'unknown',
+    ]) {
+      const parsed = dietAssessmentInputSchema.parse({ petId, ...assessment, muscleCondition });
+      expect(parsed.muscleCondition).toBe(muscleCondition);
+    }
+    for (const muscleCondition of ['healthy', 'no-loss', null, 0])
+      expect(
+        dietAssessmentInputSchema.safeParse({ petId, ...assessment, muscleCondition }).success,
+      ).toBe(false);
+  });
 });
 
 describe('adult dog starting estimates and comparison references', () => {
@@ -340,6 +365,18 @@ describe('adult dog starting estimates and comparison references', () => {
     }
   });
 
+  it('preserves every canine reference field when optional feline muscle evidence is supplied', () => {
+    for (const neuterStatus of ['yes', 'no'] as const) {
+      const dog = { ...pet, neuterStatus };
+      const original = estimateDailyDietTargets(dog, today, assessment);
+      expect(original.version).toBe('vetify-dog-maintenance-v1');
+      for (const muscleCondition of ['normal', 'unknown', 'mild-loss', 'severe-loss'] as const)
+        expect(estimateDailyDietTargets(dog, today, { ...assessment, muscleCondition })).toEqual(
+          original,
+        );
+    }
+  });
+
   it.each([
     { species: 'cat' },
     { species: 'other' },
@@ -382,6 +419,142 @@ describe('adult dog starting estimates and comparison references', () => {
       expect(result.blockers.length).toBeGreaterThan(0);
     },
   );
+});
+
+describe('feline ordinary-adult reference estimates', () => {
+  it('uses the 4 kg neutered AAHA estimate with the feline Adult75 minimum comparisons', () => {
+    const result = estimateDailyDietTargets(cat, today, catAssessment);
+    expect(result.blockers).toEqual([]);
+    expect(result.status).toBe('estimated');
+    expect(result.rerKcal).toBeCloseTo(197.9898987322333, 10);
+    expect(result.factor).toBe(1.2);
+    expect(result.kcal).toBeCloseTo(237.58787847868, 10);
+    expect(result.proteinG).toBeCloseTo(19.791070277274, 10);
+    expect(result.fatG).toBeCloseTo(5.34572726577, 10);
+    expect(result.carbsG).toBeNull();
+    expect(result.profile).toBe('fediaf2025.cat-adult75');
+    expect(result.version).toBe('vetify-cat-maintenance-v1');
+    expect(result.reference).toContain('Adult Cat 75');
+    expect(result.notes.join(' ')).toContain('not a published FEDIAF profile-selection rule');
+    expect(result.notes.join(' ')).toContain('without being deficient');
+    // FEDIAF's independent energy alternative is 189.863489 kcal/day; it is
+    // not an additional multiplier or a replacement for this AAHA estimate.
+    expect(result.kcal).not.toBeCloseTo(189.863489095542, 6);
+  });
+
+  it('uses confirmed measured weight and retains Adult75 above the feline coefficient100', () => {
+    const result = estimateDailyDietTargets({ ...cat, neuterStatus: 'no', weightKg: 20 }, today, {
+      ...catAssessment,
+      weightKg: 6,
+    });
+    expect(result.status).toBe('estimated');
+    expect(result.weightKg).toBe(6);
+    expect(result.factor).toBe(1.4);
+    expect(result.kcal).toBeCloseTo(375.698545296808, 10);
+    expect((result.kcal ?? 0) / 6 ** 0.67).toBeGreaterThan(100);
+    expect(result.profile).toBe('fediaf2025.cat-adult75');
+    expect(result.proteinG).toBeCloseTo(31.295688823224, 10);
+    expect(result.fatG).toBeCloseTo(8.453217269178, 10);
+  });
+
+  it('withholds the reference below the selected feline density domain', () => {
+    const result = estimateDailyDietTargets(cat, today, { ...catAssessment, weightKg: 0.2 });
+    expect(result.status).toBe('needs-review');
+    expect(result.kcal).toBeNull();
+    expect(result.proteinG).toBeNull();
+    expect(result.fatG).toBeNull();
+    expect(result.profile).toBeNull();
+    expect(result.blockers).toContain(
+      'This energy intake needs a reviewed feline nutrient-density profile.',
+    );
+  });
+
+  it('accepts a confirmed grown cat at one year and requests review from seven years', () => {
+    const boundaryDay = '2026-10-31';
+    const confirmed = { ...catAssessment, weightMeasuredOn: boundaryDay };
+    expect(
+      estimateDailyDietTargets({ ...cat, birthMonth: '2025-10' }, boundaryDay, confirmed).status,
+    ).toBe('estimated');
+    expect(
+      estimateDailyDietTargets({ ...cat, birthMonth: '2019-10' }, '2026-10-30', {
+        ...confirmed,
+        weightMeasuredOn: '2026-10-30',
+      }).status,
+    ).toBe('estimated');
+    const mature = estimateDailyDietTargets(
+      { ...cat, birthMonth: '2019-10' },
+      boundaryDay,
+      confirmed,
+    );
+    expect(mature.kcal).toBeNull();
+    expect(mature.blockers.join(' ')).toContain('in this release');
+    expect(mature.blockers.join(' ')).not.toContain('obese');
+  });
+
+  it.each([undefined, 'unknown', 'mild-loss', 'moderate-loss', 'severe-loss'] as const)(
+    'requires explicitly normal feline muscle condition instead of assuming it from BCS: %s',
+    (muscleCondition) => {
+      const result = estimateDailyDietTargets(cat, today, { ...catAssessment, muscleCondition });
+      expect(result.kcal).toBeNull();
+      expect(result.proteinG).toBeNull();
+      expect(result.blockers.join(' ')).toContain('muscle condition');
+      expect(result.version).toBe('vetify-cat-maintenance-v1');
+    },
+  );
+
+  it.each([
+    { birthMonth: '2026-01' },
+    { pregnantOrNursing: 'yes' },
+    { pregnantOrNursing: 'unknown' },
+    { neuterStatus: 'prefer_not_to_say' },
+    { activityLevel: 'low' },
+    { activityLevel: 'high' },
+    { activityLevel: 'unknown' },
+    { feedingGoal: 'lose' },
+    { feedingGoal: 'gain' },
+    { healthConditions: ['kidney disease'] },
+    { allergies: ['chicken'] },
+  ] as Partial<Pet>[])('retains screened-adult boundaries for cats: %j', (change) => {
+    const result = estimateDailyDietTargets({ ...cat, ...change }, today, catAssessment);
+    expect(result.status).toBe('needs-review');
+    expect(result.kcal).toBeNull();
+    expect(result.proteinG).toBeNull();
+    expect(result.fatG).toBeNull();
+    expect(result.blockers.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    { growing: true },
+    { growing: undefined },
+    { stableWeight: false },
+    { healthConcern: true },
+    { prescribedDiet: true },
+    { appetiteChange: true },
+    { conditionScore: 6 },
+    { conditionScore: null },
+    { weightMeasuredOn: '2026-08-31' },
+    { weightMeasuredOn: '2026-10-02' },
+    { weightMeasuredOn: '2026-02-29' },
+  ] as Partial<DailyDietAssessment>[])(
+    'withholds feline references for incomplete or concerning assessment answers: %j',
+    (change) => {
+      const result = estimateDailyDietTargets(cat, today, { ...catAssessment, ...change });
+      expect(result.status).toBe('needs-review');
+      expect(result.kcal).toBeNull();
+      expect(result.blockers.length).toBeGreaterThan(0);
+      expect(result.blockers.join(' ')).not.toContain('obese');
+    },
+  );
+
+  it('keeps intake recording and unknown macro gaps available when feline references need review', () => {
+    const unreviewed = estimateDailyDietTargets(cat, today, null);
+    const contribution = portionNutrition({ ...food, species: 'cat' }, details, 50);
+    const totals = summarizeDailyDiet([contribution], unreviewed);
+    expect(totals.kcal.total).toBe(82.5);
+    expect(totals.proteinG.total).toBe(15.5);
+    expect(totals.kcal.target).toBeNull();
+    expect(totals.kcal.remaining).toBeNull();
+  });
 });
 
 describe('logged daily totals and remaining comparisons', () => {

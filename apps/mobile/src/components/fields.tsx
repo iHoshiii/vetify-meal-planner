@@ -70,9 +70,11 @@ export function Choice<T extends string>({
   );
 }
 const styles = StyleSheet.create({
-  field: { gap: 7 },
+  field: { gap: 7, minWidth: 0 },
   label: { fontSize: 14, fontWeight: '600', color: colors.ink },
   input: {
+    minWidth: 0,
+    width: '100%',
     minHeight: 44,
     borderWidth: 1,
     borderColor: colors.border,
@@ -84,9 +86,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   multiline: { minHeight: 90, textAlignVertical: 'top' },
-  hint: { fontSize: 12, color: colors.muted },
+  hint: { fontSize: 12, lineHeight: 18, color: colors.muted },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: {
+    maxWidth: '100%',
+    minWidth: 0,
     minHeight: 44,
     borderRadius: 10,
     paddingHorizontal: 13,
@@ -96,6 +100,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selected: { backgroundColor: colors.soft, borderColor: colors.primary },
-  optionText: { color: colors.ink, fontSize: 14 },
+  optionText: { color: colors.ink, fontSize: 14, flexShrink: 1 },
   selectedText: { color: colors.primary, fontWeight: '600' },
 });

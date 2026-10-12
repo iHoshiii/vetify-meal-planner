@@ -44,7 +44,7 @@ export function MealEntryFields({
         value={extras}
         onChangeText={onExtras}
         keyboardType="decimal-pad"
-        hint="Enter 0 for none. Leave blank when calories are unknown."
+        hint="0 for none. Leave unknown calories blank."
       />
       <Field label="Meal note" value={note} onChangeText={onNote} maxLength={300} multiline />
     </View>

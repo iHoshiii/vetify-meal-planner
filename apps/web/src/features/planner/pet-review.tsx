@@ -4,7 +4,6 @@ export function PetReview({ form, onEdit }: { form: FormValues; onEdit: (index: 
   const sections = reviewSections(form);
   return (
     <div>
-      <p className="mb-4 text-sm text-slate-600">Check these details before saving your pet.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         {sections.map((section, index) => (
           <section key={section.title} className="rounded-xl border border-slate-200 p-4">
@@ -16,20 +15,22 @@ export function PetReview({ form, onEdit }: { form: FormValues; onEdit: (index: 
                 onClick={() => {
                   onEdit(index);
                 }}
-                className="text-sm font-bold text-teal-700 hover:text-teal-900"
+                className="min-h-11 shrink-0 text-sm font-semibold text-teal-700 hover:text-teal-900"
               >
                 Edit
               </button>
             </div>
             <dl className="mt-3 space-y-3">
-              {section.fields.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-xs text-slate-500">{label}</dt>
-                  <dd className="mt-0.5 break-words text-sm font-semibold text-slate-900">
-                    {value}
-                  </dd>
-                </div>
-              ))}
+              {section.fields
+                .filter(([, value]) => Boolean(value))
+                .map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-slate-500">{label}</dt>
+                    <dd className="mt-0.5 break-words text-sm font-semibold text-slate-900">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
             </dl>
           </section>
         ))}

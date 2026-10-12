@@ -17,6 +17,11 @@ export function useUpdatePet() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PetInput }) => savePet(input, id),
-    onSuccess: () => client.invalidateQueries({ queryKey: ownerQueryKey('pets') }),
+    onSuccess: (_, { id }) =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ownerQueryKey('pets') }),
+        client.invalidateQueries({ queryKey: ownerQueryKey('diet-assessment', id) }),
+        client.invalidateQueries({ queryKey: ownerQueryKey('monthly-progress', id) }),
+      ]),
   });
 }

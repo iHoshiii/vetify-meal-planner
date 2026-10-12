@@ -19,10 +19,10 @@ export function PetHealth({ form, set }: PetStepProps) {
         onChangeText={(value) => set('healthConditions', value)}
         placeholder="Arthritis, diabetes"
         multiline
-        hint="Separate each item with a comma."
+        hint="Separate items with commas."
       />
       <Choice
-        label="Profile body condition score (1 to 10)"
+        label="Body condition (1 to 10)"
         value={form.bodyConditionScore === null ? '' : String(form.bodyConditionScore)}
         onChange={(value) => set('bodyConditionScore', value ? Number(value) : null)}
         options={scores}

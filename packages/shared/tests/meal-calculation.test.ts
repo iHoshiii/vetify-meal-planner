@@ -1,5 +1,6 @@
 import { previewMealPlan } from '@vetify/planner-shared/meal-calculation';
-import type { MealPlanInput } from '@vetify/planner-shared/meal-plans';
+import { mealPlanInputSchema, type MealPlanInput } from '@vetify/planner-shared/meal-plans';
+import { estimateDailyDietTargets } from '@vetify/planner-shared/daily-diet';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { describe, expect, it } from 'vitest';
 
@@ -56,6 +57,15 @@ const input: MealPlanInput = {
   extrasKcal: 30,
   manualDailyGrams: null,
   mealTimes: ['08:00', '18:00'],
+};
+const today = '2026-10-01';
+const cat: Pet = { ...pet, name: 'Nori', species: 'cat', breed: 'Mixed', weightKg: 4 };
+const catInput: MealPlanInput = {
+  ...input,
+  weightKg: 4,
+  muscleCondition: 'normal',
+  extrasKcal: 0,
+  food: { ...input.food, species: 'cat', calories: 900 },
 };
 
 describe('meal plan calculation', () => {
@@ -125,4 +135,135 @@ describe('meal plan calculation', () => {
       'Treats exceed 10% of estimated daily calories. Review the food plan.',
     );
   });
+
+  it('keeps canine calorie/gram rounding and screening unaffected by optional muscle evidence', () => {
+    const expected = previewMealPlan(pet, input, today);
+    for (const muscleCondition of ['normal', 'unknown', 'mild-loss', 'severe-loss'] as const)
+      expect(previewMealPlan(pet, { ...input, muscleCondition }, today)).toEqual(expected);
+    expect(expected.dailyKcal).toBe(551);
+    expect(expected.dailyGrams).toBe(148.9);
+  });
+});
+
+describe('new feline commercial portion estimates', () => {
+  it('matches the full-precision daily reference while rounding the weighed food portions', () => {
+    const result = previewMealPlan(cat, catInput, today);
+    const reference = estimateDailyDietTargets(cat, today, {
+      weightKg: catInput.weightKg,
+      weightMeasuredOn: catInput.weightMeasuredOn,
+      conditionScore: catInput.conditionScore,
+      stableWeight: catInput.stableWeight,
+      growing: catInput.growing,
+      healthConcern: catInput.healthConcern,
+      prescribedDiet: catInput.prescribedDiet,
+      appetiteChange: catInput.appetiteChange,
+      muscleCondition: catInput.muscleCondition,
+    });
+    expect(result.blockers).toEqual([]);
+    expect(reference.blockers).toEqual([]);
+    expect(result.factor).toBe(1.2);
+    expect(result.dailyKcal).toBeCloseTo(237.58787847868, 10);
+    expect(result.dailyKcal).toBe(reference.kcal);
+    expect(result.foodKcal).toBe(result.dailyKcal);
+    expect(result.dailyGrams).toBe(264);
+    expect(result.mealGrams).toEqual([132, 132]);
+  });
+
+  it('gives the same feline portion from equivalent packaged and kilogram label calories', () => {
+    const result = previewMealPlan(
+      cat,
+      {
+        ...catInput,
+        food: {
+          ...catInput.food,
+          calorieBasis: 'package',
+          packageGrams: 90,
+          calories: 81,
+        },
+      },
+      today,
+    );
+    expect(result).toEqual(previewMealPlan(cat, catInput, today));
+  });
+
+  it('uses the ordinary intact factor without stacking age, breed, or activity multipliers', () => {
+    const result = previewMealPlan(
+      { ...cat, neuterStatus: 'no', breed: 'Maine Coon' },
+      { ...catInput, weightKg: 6 },
+      today,
+    );
+    expect(result.blockers).toEqual([]);
+    expect(result.factor).toBe(1.4);
+    expect(result.dailyKcal).toBeCloseTo(375.698545296808, 10);
+    expect(result.dailyGrams).toBe(417.4);
+    expect(result.mealGrams.reduce((sum, grams) => sum + grams, 0)).toBe(result.dailyGrams);
+  });
+
+  it.each([undefined, 'unknown', 'mild-loss', 'moderate-loss', 'severe-loss'] as const)(
+    'requires normal feline muscle condition for newly calculated portions: %s',
+    (muscleCondition) => {
+      const result = previewMealPlan(cat, { ...catInput, muscleCondition }, today);
+      expect(result.dailyGrams).toBeNull();
+      expect(result.mealGrams).toEqual([]);
+      expect(result.blockers.join(' ')).toContain('muscle condition');
+    },
+  );
+
+  it('keeps the assessment field optional in historical plan inputs without a healthy default', () => {
+    const { muscleCondition: _muscleCondition, ...legacy } = catInput;
+    const parsed = mealPlanInputSchema.parse(legacy);
+    expect(parsed.muscleCondition).toBeUndefined();
+    expect(previewMealPlan(cat, parsed, today).dailyGrams).toBeNull();
+  });
+
+  it('requires review from the seventh birthday but does not change an entered older-cat schedule', () => {
+    const mature = { ...cat, birthMonth: '2018-01' };
+    const estimate = previewMealPlan(mature, catInput, today);
+    expect(estimate.dailyGrams).toBeNull();
+    expect(estimate.blockers.join(' ')).toContain('in this release');
+    const manual = previewMealPlan(
+      { ...mature, healthConditions: ['kidney disease'] },
+      {
+        ...catInput,
+        mode: 'manual',
+        manualDailyGrams: 100,
+        muscleCondition: undefined,
+        conditionScore: null,
+      },
+      today,
+    );
+    expect(manual.blockers).toEqual([]);
+    expect(manual.factor).toBeNull();
+    expect(manual.dailyGrams).toBe(100);
+    expect(manual.dailyKcal).toBe(90);
+    expect(manual.mealGrams).toEqual([50, 50]);
+  });
+
+  it('withholds a new cat portion below the selected nutrient-density comparison domain', () => {
+    const result = previewMealPlan(cat, { ...catInput, weightKg: 0.2 }, today);
+    expect(result.dailyGrams).toBeNull();
+    expect(result.mealGrams).toEqual([]);
+    expect(result.blockers).toContain(
+      'This energy intake needs a reviewed feline nutrient-density profile.',
+    );
+  });
+
+  it.each([
+    { adequacy: 'supplemental' },
+    { species: 'dog' },
+    { lifeStage: 'growth' },
+    { calories: null },
+    { labelSource: '' },
+  ] as Partial<MealPlanInput['food']>[])(
+    'does not prescribe a primary portion from an unsuitable or unverified cat food: %j',
+    (change) => {
+      const result = previewMealPlan(
+        cat,
+        { ...catInput, food: { ...catInput.food, ...change } },
+        today,
+      );
+      expect(result.dailyGrams).toBeNull();
+      expect(result.blockers.length).toBeGreaterThan(0);
+    },
+  );
 });

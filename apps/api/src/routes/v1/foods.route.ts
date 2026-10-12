@@ -1,11 +1,10 @@
 import {
   defaultFoodDetails,
   filterFoodCatalogForSpecies,
-  packagedFoodCatalog,
   savedFoodInputSchema,
   type SavedFoodInput,
 } from '@vetify/planner-shared/foods';
-import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
+import { defaultFoodCatalog } from '@vetify/planner-shared/food-catalog';
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { validate } from '../../middleware/validate.js';
@@ -32,10 +31,7 @@ router.get('/', async (req, res) => {
   if (!pet) return fail(res, 404, 'Pet not found');
   return ok(res, {
     foods: await listSavedFoods(ownerId, petId),
-    catalog: filterFoodCatalogForSpecies(
-      [...defaultIngredientCatalog, ...packagedFoodCatalog],
-      pet.species,
-    ),
+    catalog: filterFoodCatalogForSpecies(defaultFoodCatalog, pet.species),
   });
 });
 

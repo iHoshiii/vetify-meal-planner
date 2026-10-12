@@ -1,9 +1,9 @@
 import type { MealPlanInput } from '@vetify/planner-shared/meal-plans';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { Alert, Linking, StyleSheet, View } from 'react-native';
-import { accountToday } from '../../auth/session';
-import { Button, Choice, Field, Notice, Toggle } from '../../components/ui';
+import { Button, Choice, Field, Toggle } from '../../components/ui';
 import { PlanNumberField } from './plan-number-field';
+import { MuscleConditionChoice } from './muscle-condition-choice';
 
 type Props = { pet: Pet; value: MealPlanInput; set: (value: MealPlanInput) => void };
 const flags = [
@@ -27,11 +27,10 @@ export function HealthFields({ pet, value, set }: Props) {
         onChange={(weightKg) => update({ weightKg: weightKg ?? 0 })}
       />
       <Field
-        label={`Date ${pet.name} was weighed`}
+        label="Date weighed"
         value={value.weightMeasuredOn}
         placeholder="YYYY-MM-DD"
         maxLength={10}
-        hint={`Use a date on or before ${accountToday()}.`}
         onChangeText={(weightMeasuredOn) => update({ weightMeasuredOn })}
       />
       <Choice
@@ -47,7 +46,7 @@ export function HealthFields({ pet, value, set }: Props) {
         onChange={(score) => update({ conditionScore: score ? Number(score) : null })}
       />
       <Button
-        label="See the dog and cat body condition guide"
+        label="Body condition guide"
         variant="ghost"
         onPress={() =>
           void Linking.openURL(guide).catch(() =>
@@ -56,20 +55,22 @@ export function HealthFields({ pet, value, set }: Props) {
         }
       />
       <Choice
-        label="How should this plan be made?"
+        label="Plan type"
         value={value.mode}
         options={[
-          { label: 'Schedule an existing amount', value: 'manual' },
-          { label: 'Estimate a starting amount', value: 'estimate' },
+          { label: 'Existing amount', value: 'manual' },
+          { label: 'Starting estimate', value: 'estimate' },
         ]}
         onChange={(mode) => update({ mode: mode as MealPlanInput['mode'] })}
       />
       {value.mode === 'estimate' && (
         <View style={styles.fields}>
-          <Notice>
-            Starting estimates are checked for adult weight maintenance using the pet details and
-            food label.
-          </Notice>
+          {pet.species === 'cat' && (
+            <MuscleConditionChoice
+              value={value.muscleCondition ?? ''}
+              onChange={(muscleCondition) => update({ muscleCondition })}
+            />
+          )}
           {flags.map(([key, label]) => (
             <Toggle
               key={key}

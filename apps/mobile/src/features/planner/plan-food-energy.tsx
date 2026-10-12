@@ -1,7 +1,6 @@
 import type { MealPlanInput } from '@vetify/planner-shared/meal-plans';
 import type { Pet } from '@vetify/planner-shared/pets';
 import { StyleSheet, View } from 'react-native';
-import { accountToday } from '../../auth/session';
 import { Choice, Field, Notice } from '../../components/ui';
 import { PlanNumberField } from './plan-number-field';
 
@@ -45,7 +44,7 @@ export function FoodEnergyFields({
         />
       )}
       <Field
-        label={`Where did the calorie figure come from?${optional}`}
+        label={`Label source${optional}`}
         value={value.food.labelSource}
         maxLength={180}
         placeholder="e.g. Bag label or manufacturer website"
@@ -56,7 +55,6 @@ export function FoodEnergyFields({
         value={value.food.labelCheckedOn ?? ''}
         maxLength={10}
         placeholder="YYYY-MM-DD"
-        hint={`Use a date on or before ${accountToday()}.`}
         onChangeText={(date) => update({ labelCheckedOn: date || null })}
       />
       <PlanNumberField
@@ -67,7 +65,7 @@ export function FoodEnergyFields({
         onChange={(extrasKcal) => set({ ...value, extrasKcal })}
       />
       <Notice tone="warning">
-        Check the exact package. A different formula or size may have different calories.
+        Use the exact package label.
         {pet.allergies.length ? ' Review the reported food reactions before using this food.' : ''}
       </Notice>
     </View>

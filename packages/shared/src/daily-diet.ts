@@ -48,6 +48,7 @@ export const dietAssessmentInputSchema = mealPlanInputSchema
     healthConcern: true,
     prescribedDiet: true,
     appetiteChange: true,
+    muscleCondition: true,
   })
   .strict();
 
@@ -61,6 +62,7 @@ export type DailyDietAssessment = Pick<
   | 'healthConcern'
   | 'prescribedDiet'
   | 'appetiteChange'
+  | 'muscleCondition'
 >;
 export type DietAssessmentInput = z.infer<typeof dietAssessmentInputSchema>;
 
@@ -73,7 +75,7 @@ export type DailyDietTargets = DietNutrition & {
   factor: number | null;
   rerKcal: number | null;
   weightKg: number | null;
-  profile: 'fediaf2025.adult95' | 'fediaf2025.adult110' | null;
+  profile: 'fediaf2025.adult95' | 'fediaf2025.adult110' | 'fediaf2025.cat-adult75' | null;
   blockers: string[];
   notes: string[];
   reference: string;
@@ -107,7 +109,7 @@ export function portionNutrition(
   const labelledDensity = details.kind === 'packaged' ? foodKcalPerGram(food) : null;
   const nutrient = (value: number | null) => (value === null ? null : value * scale);
   return {
-    // Prefer manufacturer canine energy to a separately entered composition estimate.
+    // Prefer manufacturer pet-food energy to a separately entered composition estimate.
     kcal: labelledDensity === null ? nutrient(composition.kcal) : labelledDensity * grams,
     proteinG: nutrient(composition.proteinG),
     fatG: nutrient(composition.fatG),
@@ -142,6 +144,7 @@ export function estimateDailyDietTargets(
   assessment: DailyDietAssessment | null,
 ): DailyDietTargets {
   const blockers: string[] = [];
+  const feline = pet.species === 'cat';
   const result: DailyDietTargets = {
     kcal: null,
     proteinG: null,
@@ -156,15 +159,22 @@ export function estimateDailyDietTargets(
     notes: [
       'Energy is a starting estimate. Reassess it using weight and body condition.',
       'Protein and fat are profile-derived minimum comparisons, not a complete recipe.',
-      'There is no universal carbohydrate target in the selected canine profile.',
+      `There is no universal carbohydrate target in the selected ${feline ? 'feline' : 'canine'} profile.`,
       'Food composition estimates do not establish that the whole diet is complete.',
+      ...(feline
+        ? [
+            'Vetify retains the conservative Adult Cat 75 comparison; this is a product policy, not a published FEDIAF profile-selection rule.',
+            'A food meeting the Adult Cat 100 profile can fall below this protein comparison without being deficient.',
+          ]
+        : []),
     ],
     reference: 'AAHA 2021 · FEDIAF September 2025',
-    version: 'vetify-dog-maintenance-v1',
+    version: feline ? 'vetify-cat-maintenance-v1' : 'vetify-dog-maintenance-v1',
     sources: { energy: energySource, nutrients: nutrientSource },
   };
   if (!validCalendarDay(today)) blockers.push('Enter a real assessment date.');
-  if (pet.species !== 'dog') blockers.push('Automatic daily targets support adult dogs only.');
+  if (pet.species !== 'dog' && !feline)
+    blockers.push('Automatic daily targets support adult dogs and cats only.');
   if (pet.pregnantOrNursing !== 'no')
     blockers.push('Pregnancy, nursing or an unknown reproductive status needs a reviewed plan.');
   if (pet.feedingGoal !== 'maintain')
@@ -193,13 +203,17 @@ export function estimateDailyDietTargets(
   if (validCalendarDay(today)) {
     const age = petAge(pet, today);
     // Conservative MVP boundary; age alone does not prove growth completion.
-    if (age.years < 2 || assessment.growing)
-      blockers.push('Growing or young dogs need an individual reviewed feeding plan.');
+    if (age.years < (feline ? 1 : 2) || assessment.growing)
+      blockers.push(
+        `Growing or young ${feline ? 'cats' : 'dogs'} need an individual reviewed feeding plan.`,
+      );
+    if (feline && age.years >= 7)
+      blockers.push('Cats aged seven or older need an individual feeding review in this release.');
     const measurement = Date.parse(`${assessment.weightMeasuredOn}T00:00:00.000Z`);
     const current = Date.parse(`${today}T00:00:00.000Z`);
     if (measurement > current) blockers.push('The weight measurement cannot be in the future.');
     else if (current - measurement > 30 * 86400000)
-      blockers.push('Measure the dog again before estimating daily targets.');
+      blockers.push(`Measure the ${feline ? 'cat' : 'dog'} again before estimating daily targets.`);
   }
   if (assessment.healthConcern || assessment.prescribedDiet)
     blockers.push('Health concerns or a prescribed diet need a reviewed feeding plan.');
@@ -207,14 +221,47 @@ export function estimateDailyDietTargets(
     blockers.push('Recent appetite or weight changes need a feeding review.');
   if (assessment.conditionScore !== 4 && assessment.conditionScore !== 5)
     blockers.push('Confirm a body condition score of 4 or 5 out of 9.');
+  if (feline && assessment.muscleCondition !== 'normal')
+    blockers.push(
+      'Confirm normal muscle condition; muscle loss needs an individual feeding review.',
+    );
   if (blockers.length) return result;
 
   // One method, never a multiplied age/size/activity/neuter stack. Lower ends of
   // AAHA adult ranges match the existing conservative Vetify research default.
-  const factor = pet.neuterStatus === 'yes' ? 1.4 : 1.6;
+  const factor = feline
+    ? pet.neuterStatus === 'yes'
+      ? 1.2
+      : 1.4
+    : pet.neuterStatus === 'yes'
+      ? 1.4
+      : 1.6;
   const metabolicWeight = assessment.weightKg ** 0.75;
   const rerKcal = 70 * metabolicWeight;
   const kcal = rerKcal * factor;
+  if (feline) {
+    // The chosen AAHA energy method uses W^.75. The feline FEDIAF food
+    // reference uses W^.67; these exponents and methods must not be combined.
+    const felineEnergyCoefficient = kcal / assessment.weightKg ** 0.67;
+    if (felineEnergyCoefficient < 75) {
+      blockers.push('This energy intake needs a reviewed feline nutrient-density profile.');
+      return result;
+    }
+    // Retaining Adult Cat 75 above its coefficient is a disclosed conservative
+    // Vetify comparison policy, not a FEDIAF selection rule or adequacy claim.
+    return {
+      ...result,
+      kcal,
+      proteinG: (83.3 * kcal) / 1000,
+      fatG: (22.5 * kcal) / 1000,
+      status: 'estimated',
+      factor,
+      rerKcal,
+      weightKg: assessment.weightKg,
+      profile: 'fediaf2025.cat-adult75',
+      reference: `${result.reference} · Adult Cat 75`,
+    };
+  }
   const energyCoefficient = 70 * factor;
   // The A95 mapping at 98 is Vetify's disclosed conservative profile policy,
   // not a newly published FEDIAF threshold or an adequacy approval.
@@ -239,7 +286,7 @@ export function estimateDailyDietTargets(
 }
 
 /**
- * Totals describe logged entries, not proof of everything the dog consumed.
+ * Totals describe logged entries, not proof of everything the pet consumed.
  * Legacy feeding entries can participate only once, as nullable nutrition rows.
  */
 export function summarizeDailyDiet(

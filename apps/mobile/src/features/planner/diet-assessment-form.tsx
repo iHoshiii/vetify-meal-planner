@@ -8,6 +8,7 @@ import type { Pet } from '@vetify/planner-shared/pets';
 import { accountToday } from '../../auth/session';
 import { useScreenActive } from '../../components/screen-activity';
 import { Button, ErrorMessage, Field, colors } from '../../components/ui';
+import { MuscleConditionChoice, type MuscleCondition } from './muscle-condition-choice';
 
 export type DietAssessmentFormProps = {
   pet: Pet;
@@ -38,7 +39,7 @@ const answer = (value: boolean | undefined): Answer =>
   value === undefined ? '' : value ? 'yes' : 'no';
 
 export function DietAssessmentForm(props: DietAssessmentFormProps) {
-  return <AssessmentFields key={props.pet.id} {...props} />;
+  return <AssessmentFields key={`${props.pet.id}:${props.pet.species}`} {...props} />;
 }
 
 function AssessmentFields({
@@ -53,6 +54,9 @@ function AssessmentFields({
   const [weight, setWeight] = useState(String(assessment?.weightKg ?? pet.weightKg));
   const [measuredOn, setMeasuredOn] = useState(assessment?.weightMeasuredOn ?? today);
   const [condition, setCondition] = useState(assessment?.conditionScore?.toString() ?? '');
+  const [muscleCondition, setMuscleCondition] = useState<MuscleCondition | ''>(
+    pet.species === 'cat' ? (assessment?.muscleCondition ?? '') : '',
+  );
   const [answers, setAnswers] = useState<Record<Report, Answer>>(() => ({
     stableWeight: answer(assessment?.stableWeight),
     fullyGrown: answer(assessment ? !assessment.growing : undefined),
@@ -108,6 +112,10 @@ function AssessmentFields({
       setValidation('Please answer all five health questions.');
       return;
     }
+    if (pet.species === 'cat' && muscleCondition === '') {
+      setValidation('Choose a muscle condition, or select Not sure.');
+      return;
+    }
     const parsed = dietAssessmentInputSchema.safeParse({
       petId: pet.id,
       ...measurement.data,
@@ -116,6 +124,7 @@ function AssessmentFields({
       healthConcern: answers.healthConcern === 'yes',
       prescribedDiet: answers.prescribedDiet === 'yes',
       appetiteChange: answers.appetiteChange === 'yes',
+      ...(pet.species === 'cat' ? { muscleCondition } : {}),
     });
     if (!parsed.success) {
       setValidation('Check the assessment details.');
@@ -129,7 +138,7 @@ function AssessmentFields({
     <View style={styles.container}>
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>
-          Feeding assessment
+          Daily target
         </Text>
         <Button label="Cancel" variant="ghost" compact disabled={pending} onPress={onCancel} />
       </View>
@@ -171,9 +180,6 @@ function AssessmentFields({
                 />
               </View>
             </View>
-            <Text style={styles.hint}>
-              Owner-reported. Confirm the weight and date you measured.
-            </Text>
             <Field
               label="Body condition, 1 to 9 (optional)"
               value={condition}
@@ -183,37 +189,49 @@ function AssessmentFields({
               }}
               keyboardType="number-pad"
               placeholder="Not sure"
-              hint="4 or 5: healthy range. Other or unknown scores need review."
+              hint="Unknown or other scores may need review."
             />
           </>
         ) : (
-          reports.map(([key, label]) => (
-            <View key={key} style={styles.reportRow}>
-              <Text style={styles.reportLabel}>{label}</Text>
-              <View accessibilityRole="radiogroup" style={styles.answers}>
-                {(['yes', 'no'] as const).map((value) => (
-                  <Pressable
-                    key={value}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${label}: ${value === 'yes' ? 'Yes' : 'No'}`}
-                    accessibilityState={{ checked: answers[key] === value, disabled: pending }}
-                    disabled={pending}
-                    onPress={() => {
-                      setAnswers((current) => ({ ...current, [key]: value }));
-                      setValidation('');
-                    }}
-                    style={[styles.option, answers[key] === value && styles.selected]}
-                  >
-                    <Text
-                      style={[styles.optionText, answers[key] === value && styles.selectedText]}
+          <>
+            {pet.species === 'cat' && (
+              <MuscleConditionChoice
+                value={muscleCondition}
+                disabled={pending}
+                onChange={(value) => {
+                  setMuscleCondition(value);
+                  setValidation('');
+                }}
+              />
+            )}
+            {reports.map(([key, label]) => (
+              <View key={key} style={styles.reportRow}>
+                <Text style={styles.reportLabel}>{label}</Text>
+                <View accessibilityRole="radiogroup" style={styles.answers}>
+                  {(['yes', 'no'] as const).map((value) => (
+                    <Pressable
+                      key={value}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${label}: ${value === 'yes' ? 'Yes' : 'No'}`}
+                      accessibilityState={{ checked: answers[key] === value, disabled: pending }}
+                      disabled={pending}
+                      onPress={() => {
+                        setAnswers((current) => ({ ...current, [key]: value }));
+                        setValidation('');
+                      }}
+                      style={[styles.option, answers[key] === value && styles.selected]}
                     >
-                      {value === 'yes' ? 'Yes' : 'No'}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={[styles.optionText, answers[key] === value && styles.selectedText]}
+                      >
+                        {value === 'yes' ? 'Yes' : 'No'}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
-          ))
+            ))}
+          </>
         )}
       </View>
       <ErrorMessage message={validation || error || undefined} />

@@ -1,6 +1,12 @@
 import type { DailyDietAssessment, DietAssessmentInput } from '@vetify/planner-shared/daily-diet';
+import type { Pet } from '@vetify/planner-shared/pets';
 import { ObjectId, type Collection, type IndexDescription } from 'mongodb';
 import { getDb } from '../config/db.js';
+import { dietPetContext } from './diet-assessment-context.js';
+import {
+  captureDietTargetSnapshots,
+  findCurrentCatDietAssessment,
+} from './diet-target-snapshots.js';
 
 export const DIET_ASSESSMENTS_COLLECTION = 'diet_assessments';
 export const DIET_ASSESSMENT_INDEXES: IndexDescription[] = [
@@ -14,6 +20,8 @@ type AssessmentDocument = {
   assessment: DailyDietAssessment;
   confirmedOn: string;
   timeZone: string;
+  petContext?: string;
+  invalidated?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -31,10 +39,14 @@ export async function findCurrentDietAssessment(
   ownerId: string,
   petId: ObjectId,
   today: string,
+  pet?: Pet,
+  timeZone?: string,
 ): Promise<DailyDietAssessment | null> {
+  if (pet?.species === 'cat') return findCurrentCatDietAssessment(ownerId, pet, today, timeZone);
   const doc = await collection().findOne({ ownerId, petId });
   if (
     !doc ||
+    doc.invalidated ||
     !currentDateWithin30Days(doc.assessment.weightMeasuredOn, today) ||
     !currentDateWithin30Days(doc.confirmedOn, today)
   )
@@ -47,12 +59,24 @@ export async function saveDietAssessment(
   input: DietAssessmentInput,
   confirmedOn: string,
   timeZone: string,
+  pet?: Pet,
 ): Promise<DailyDietAssessment> {
   const { petId, ...assessment } = input;
+  if (pet?.species === 'cat') {
+    await captureDietTargetSnapshots(ownerId, pet, confirmedOn, timeZone, assessment);
+    return assessment;
+  }
   const now = new Date();
   const filter = { ownerId, petId: new ObjectId(petId) };
   const changes = {
-    $set: { assessment, confirmedOn, timeZone, updatedAt: now },
+    $set: {
+      assessment,
+      confirmedOn,
+      timeZone,
+      invalidated: false,
+      ...(pet ? { petContext: dietPetContext(pet) } : {}),
+      updatedAt: now,
+    },
     $setOnInsert: { _id: new ObjectId(), ...filter, createdAt: now },
   };
   try {
@@ -63,4 +87,11 @@ export async function saveDietAssessment(
     await collection().updateOne(filter, changes);
   }
   return assessment;
+}
+
+export async function invalidateLegacyDietAssessment(
+  ownerId: string,
+  petId: ObjectId,
+): Promise<void> {
+  await collection().updateOne({ ownerId, petId }, { $set: { invalidated: true } });
 }

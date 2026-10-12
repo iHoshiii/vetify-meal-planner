@@ -171,7 +171,13 @@ export function MealLogRow({
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  header: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   mealTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { color: colors.ink, fontWeight: '600', fontSize: 14 },
@@ -181,5 +187,5 @@ const styles = StyleSheet.create({
   saved: { color: colors.primary, fontWeight: '600', fontSize: 13 },
   entry: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 },
   actions: { flexDirection: 'row', gap: 8 },
-  action: { flex: 1 },
+  action: { flex: 1, minWidth: 0 },
 });

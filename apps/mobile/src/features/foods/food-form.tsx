@@ -207,7 +207,7 @@ export function FoodForm({
           </>
         ) : isIngredient && step === 1 ? (
           <>
-            <Text style={styles.hint}>Estimated values. Leave anything unknown blank.</Text>
+            <Text style={styles.hint}>Leave unknown values blank.</Text>
             <View style={styles.nutrientRow}>
               <View style={styles.nutrientField}>
                 <Field

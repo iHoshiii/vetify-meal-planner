@@ -1,4 +1,8 @@
 import { defaultFoodDetails, type FoodLabel } from '@vetify/planner-shared/foods';
+import {
+  catIngredientCatalog,
+  catPackagedFoodCatalog,
+} from '@vetify/planner-shared/cat-food-catalog';
 import { defaultIngredientCatalog } from '@vetify/planner-shared/ingredient-catalog';
 import { ObjectId } from 'mongodb';
 import request from 'supertest';
@@ -33,7 +37,7 @@ async function foodFor(token: string, petId: string, changes: Partial<FoodLabel>
 }
 
 describe('pet food library', () => {
-  it('keeps the dog defaults out of cat and other-species libraries while retaining their custom foods', async () => {
+  it('returns species-specific defaults while keeping each pet custom foods separate', async () => {
     const token = await account();
     const dogId = await petFor(token);
     for (const species of ['cat', 'other'] as const) {
@@ -54,7 +58,12 @@ describe('pet food library', () => {
         .get(`/api/v1/foods?petId=${petId}`)
         .auth(token, { type: 'bearer' });
       expect(listed.status).toBe(200);
-      expect(listed.body.catalog).toEqual([]);
+      expect(listed.body.catalog).toEqual(
+        species === 'cat' ? [...catIngredientCatalog, ...catPackagedFoodCatalog] : [],
+      );
+      expect(
+        listed.body.catalog.every((item: { food: FoodLabel }) => item.food.species === species),
+      ).toBe(true);
       expect(listed.body.foods).toEqual([saved]);
     }
     const dogLibrary = await request(app)

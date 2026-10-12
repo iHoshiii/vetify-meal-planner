@@ -3,6 +3,7 @@ import type { MealPlan } from '@vetify/planner-shared/meal-plans';
 import { StyleSheet, Text, View } from 'react-native';
 import { ownerQueryKey } from '../../auth/session';
 import { Button, Card, ErrorMessage, Notice, colors } from '../../components/ui';
+import { shortDate } from '../../components/presentation';
 import {
   getNutritionObservations,
   saveNutritionObservation,
@@ -49,13 +50,10 @@ export function PlanProgress({
     <Card>
       <Text style={styles.heading}>Weight and condition</Text>
       <Text style={styles.detail}>
-        Plan started at {plan.petWeightKg} kg on {plan.weightMeasuredOn}.
+        Starting weight: {plan.petWeightKg} kg ({shortDate(plan.weightMeasuredOn)}).
       </Text>
       {reviewNeeded && (
-        <Notice tone="warning">
-          Review the feeding plan after changes in weight or condition, or an older weight
-          measurement.
-        </Notice>
+        <Notice tone="warning">Update the plan with a current weight and body condition.</Notice>
       )}
       {reviewNeeded && <Button label="Review this plan" variant="secondary" onPress={onReview} />}
       <ObservationForm
@@ -96,8 +94,8 @@ export function PlanProgress({
 }
 
 const styles = StyleSheet.create({
-  heading: { color: colors.ink, fontSize: 20, fontWeight: '800' },
-  detail: { color: colors.muted, fontSize: 14 },
+  heading: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  detail: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   label: { color: colors.primary, fontWeight: '700', fontSize: 13 },
   history: { gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
   row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },

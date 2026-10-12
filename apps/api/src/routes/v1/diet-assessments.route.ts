@@ -18,9 +18,16 @@ router.get('/:petId', async (req, res) => {
   if (!isValidObjectId(req.params.petId)) return fail(res, 404, 'Pet not found');
   const ownerId = actorOf(req).id;
   const petId = new ObjectId(req.params.petId);
-  if (!(await findPet(ownerId, petId))) return fail(res, 404, 'Pet not found');
+  const pet = await findPet(ownerId, petId);
+  if (!pet) return fail(res, 404, 'Pet not found');
   return ok(res, {
-    assessment: await findCurrentDietAssessment(ownerId, petId, accountToday(req)),
+    assessment: await findCurrentDietAssessment(
+      ownerId,
+      petId,
+      accountToday(req),
+      pet,
+      accountTimeZone(req),
+    ),
   });
 });
 
@@ -31,13 +38,14 @@ router.put('/:petId', validate(dietAssessmentInputSchema), async (req, res) => {
   if (petId.toHexString() !== new ObjectId(input.petId).toHexString())
     return fail(res, 400, 'Choose the same pet for the assessment.');
   const ownerId = actorOf(req).id;
-  if (!(await findPet(ownerId, petId))) return fail(res, 404, 'Pet not found');
+  const pet = await findPet(ownerId, petId);
+  if (!pet) return fail(res, 404, 'Pet not found');
   const today = accountToday(req);
   if (input.weightMeasuredOn > today)
     return fail(res, 400, 'The weight measurement cannot be in the future.');
-  return ok(res, {
-    assessment: await saveDietAssessment(ownerId, input, today, accountTimeZone(req)),
-  });
+  const timeZone = accountTimeZone(req);
+  const assessment = await saveDietAssessment(ownerId, input, today, timeZone, pet);
+  return ok(res, { assessment });
 });
 
 export default router;

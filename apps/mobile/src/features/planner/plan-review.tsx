@@ -2,6 +2,7 @@ import type { MealPlanInput, MealPlanPreview } from '@vetify/planner-shared/meal
 import type { Pet } from '@vetify/planner-shared/pets';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, Notice } from '../../components/ui';
+import { feedingMessage } from '../../components/presentation';
 
 export function PlanReview({
   pet,
@@ -29,8 +30,8 @@ export function PlanReview({
         <Text style={styles.heading}>{input.food.name}</Text>
         <Text style={styles.text}>
           {input.food.adequacy === 'complete'
-            ? 'Complete food, as entered from label'
-            : 'Food adequacy not confirmed'}
+            ? 'Complete food (label)'
+            : 'Completeness not confirmed'}
         </Text>
         {input.food.calories !== null && (
           <Text style={styles.text}>
@@ -41,9 +42,7 @@ export function PlanReview({
           <Text style={styles.text}>
             {input.mode === 'manual' ? 'Entered daily amount' : 'Starting estimate'}:{' '}
             {Math.round(preview.dailyKcal)} kcal/day.
-            {input.mode === 'estimate'
-              ? ` Includes ${input.extrasKcal} kcal of extras. Factor ${preview.factor}.`
-              : ''}
+            {input.mode === 'estimate' ? ` Includes ${input.extrasKcal} kcal of extras.` : ''}
           </Text>
         )}
         <Text style={styles.text}>
@@ -59,10 +58,10 @@ export function PlanReview({
         </View>
       ))}
       {preview.warnings.length > 0 && (
-        <Notice tone="warning">{preview.warnings.join('\n\n')}</Notice>
+        <Notice tone="warning">{preview.warnings.map(feedingMessage).join('\n')}</Notice>
       )}
       {preview.blockers.length > 0 && (
-        <Notice tone="error">{`This plan cannot be saved yet.\n\n${preview.blockers.join('\n\n')}`}</Notice>
+        <Notice tone="error">{preview.blockers.map(feedingMessage).join('\n')}</Notice>
       )}
     </View>
   );

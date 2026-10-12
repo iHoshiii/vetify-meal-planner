@@ -9,6 +9,10 @@ import {
   DIET_ASSESSMENT_INDEXES,
 } from '../models/diet-assessments.js';
 import {
+  DIET_TARGET_SNAPSHOTS_COLLECTION,
+  DIET_TARGET_SNAPSHOT_INDEXES,
+} from '../models/diet-target-snapshots.js';
+import {
   NUTRITION_OBSERVATIONS_COLLECTION,
   NUTRITION_OBSERVATION_INDEXES,
 } from '../models/nutrition-observations.js';
@@ -19,6 +23,7 @@ export async function ensureIndexes(db: Db) {
     { collection: SAVED_FOODS_COLLECTION, indexes: FOOD_INDEXES },
     { collection: DIET_ENTRIES_COLLECTION, indexes: DIET_ENTRY_INDEXES },
     { collection: DIET_ASSESSMENTS_COLLECTION, indexes: DIET_ASSESSMENT_INDEXES },
+    { collection: DIET_TARGET_SNAPSHOTS_COLLECTION, indexes: DIET_TARGET_SNAPSHOT_INDEXES },
     { collection: MEAL_PLANS_COLLECTION, indexes: MEAL_PLAN_INDEXES },
     { collection: FEEDING_LOGS_COLLECTION, indexes: FEEDING_LOG_INDEXES },
     { collection: NUTRITION_OBSERVATIONS_COLLECTION, indexes: NUTRITION_OBSERVATION_INDEXES },

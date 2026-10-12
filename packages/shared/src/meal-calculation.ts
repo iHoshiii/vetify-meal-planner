@@ -60,6 +60,12 @@ export function previewMealPlan(pet: Pet, input: MealPlanInput, today: string): 
   if (age.years < (pet.species === 'dog' ? 2 : 1) || input.growing) {
     blockers.push('Growing pets need an individual feeding plan.');
   }
+  if (pet.species === 'cat' && age.years >= 7)
+    blockers.push('Cats aged seven or older need an individual feeding review in this release.');
+  if (pet.species === 'cat' && input.muscleCondition !== 'normal')
+    blockers.push(
+      'Confirm normal muscle condition; muscle loss needs an individual feeding review.',
+    );
   if (pet.pregnantOrNursing !== 'no')
     blockers.push('Pregnancy or nursing needs an individual plan.');
   if (pet.feedingGoal !== 'maintain')
@@ -120,7 +126,12 @@ export function previewMealPlan(pet: Pet, input: MealPlanInput, today: string): 
       : pet.neuterStatus === 'yes'
         ? 1.2
         : 1.4;
-  const dailyKcal = Math.round(70 * input.weightKg ** 0.75 * factor);
+  const estimatedKcal = 70 * input.weightKg ** 0.75 * factor;
+  // New feline references retain precision through calorie budgeting, matching
+  // the daily diary engine. Preserve existing canine whole-kcal calculations.
+  const dailyKcal = pet.species === 'cat' ? estimatedKcal : Math.round(estimatedKcal);
+  if (pet.species === 'cat' && estimatedKcal / input.weightKg ** 0.67 < 75)
+    blockers.push('This energy intake needs a reviewed feline nutrient-density profile.');
   const extrasKcal = input.extrasKcal ?? 0;
   if (extrasKcal >= dailyKcal) blockers.push('Extras use the entire estimated calorie budget.');
   if (extrasKcal > dailyKcal * 0.1) {

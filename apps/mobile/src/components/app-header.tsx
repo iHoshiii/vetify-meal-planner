@@ -18,46 +18,56 @@ export function AppHeader({
   const user = getSession()?.user;
   return (
     <View style={styles.header}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={pet ? `Switch pet. Current pet: ${pet.name}` : 'Choose a pet'}
-        accessibilityState={{ disabled: switchingDisabled }}
-        disabled={switchingDisabled}
-        onPress={onSwitchPet}
-        style={({ pressed }) => [styles.brand, (pressed || switchingDisabled) && { opacity: 0.6 }]}
-      >
-        <View style={styles.mark}>
-          <AppIcon name="paw" size={23} />
-        </View>
-        <View style={styles.identity}>
-          <Text style={styles.brandName}>Vetify</Text>
-          <Text style={styles.title} numberOfLines={1}>
-            {pet?.name ?? 'Choose a pet'}
+      <View style={styles.content}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pet ? `Switch pet. Current pet: ${pet.name}` : 'Choose a pet'}
+          accessibilityState={{ disabled: switchingDisabled }}
+          disabled={switchingDisabled}
+          onPress={onSwitchPet}
+          style={({ pressed }) => [
+            styles.brand,
+            (pressed || switchingDisabled) && { opacity: 0.6 },
+          ]}
+        >
+          <View style={styles.mark}>
+            <AppIcon name="paw" size={23} />
+          </View>
+          <View style={styles.identity}>
+            <Text style={styles.brandName}>Vetify</Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {pet?.name ?? 'Choose a pet'}
+            </Text>
+          </View>
+          <AppIcon name="chevron-down" size={16} color={colors.muted} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open account"
+          onPress={onOpenAccount}
+          style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.initial}>
+            {(user?.name || user?.email || 'V').slice(0, 1).toUpperCase()}
           </Text>
-        </View>
-        <AppIcon name="chevron-down" size={16} color={colors.muted} />
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open account"
-        onPress={onOpenAccount}
-        style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.6 }]}
-      >
-        <Text style={styles.initial}>
-          {(user?.name || user?.email || 'V').slice(0, 1).toUpperCase()}
-        </Text>
-      </Pressable>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.white,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -83,6 +93,7 @@ const styles = StyleSheet.create({
   brandName: { color: colors.muted, fontSize: 11 },
   title: { fontWeight: '600', fontSize: 17, color: colors.ink },
   avatar: {
+    flexShrink: 0,
     width: 44,
     height: 44,
     borderRadius: 22,

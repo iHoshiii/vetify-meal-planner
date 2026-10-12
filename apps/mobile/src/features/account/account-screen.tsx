@@ -6,7 +6,7 @@ import { useAccountPlan } from '../../auth/auth-boundary';
 import { logout } from '../../auth/main-auth';
 import { getSession } from '../../auth/session';
 import { AppIcon } from '../../components/app-icon';
-import { Card, colors, ErrorMessage } from '../../components/ui';
+import { colors, ErrorMessage } from '../../components/ui';
 import { apiFetch } from '../../services/api';
 
 export function AccountScreen({
@@ -50,21 +50,22 @@ export function AccountScreen({
       <Text accessibilityRole="header" style={styles.heading}>
         Account
       </Text>
-      <Card>
+      <View style={styles.profile}>
         <View style={styles.identity}>
           <View style={styles.avatar}>
             <AppIcon name="user" size={24} />
           </View>
           <View style={styles.details}>
-            <Text style={styles.name}>{user?.name || 'Your account'}</Text>
-            <Text style={styles.email}>{user?.email}</Text>
+            {user?.name?.trim() ? <Text style={styles.name}>{user.name.trim()}</Text> : null}
+            {user?.email ? <Text style={styles.email}>{user.email}</Text> : null}
+            <View style={styles.membership}>
+              <Text style={styles.plan}>
+                {plan === 'Free' || plan === 'Pro' ? `${plan} plan` : plan}
+              </Text>
+            </View>
           </View>
         </View>
-        <View style={styles.membership}>
-          <Text style={styles.membershipLabel}>Subscription</Text>
-          <Text style={styles.plan}>{plan}</Text>
-        </View>
-      </Card>
+      </View>
       <View style={styles.actions}>
         {(
           [
@@ -112,22 +113,24 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 32,
-    gap: 20,
+    gap: 18,
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
   },
-  heading: { fontSize: 26, fontWeight: '700', color: colors.ink, letterSpacing: -0.5 },
+  heading: { fontSize: 24, fontWeight: '700', color: colors.ink },
+  profile: { paddingVertical: 4 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    flexShrink: 0,
     backgroundColor: colors.soft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  details: { flex: 1, gap: 4 },
+  details: { flex: 1, minWidth: 0, gap: 4 },
   name: { color: colors.ink, fontSize: 17, fontWeight: '600' },
   email: { color: colors.muted, fontSize: 13, lineHeight: 19 },
   membership: {
@@ -135,11 +138,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 14,
+    paddingTop: 4,
   },
-  membershipLabel: { flex: 1, color: colors.muted, fontSize: 14 },
   plan: {
     color: colors.primary,
     backgroundColor: colors.soft,
@@ -160,11 +160,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     minHeight: 56,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   lastAction: { borderBottomWidth: 0 },
-  actionLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
+  actionLabel: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '500', lineHeight: 21 },
 });

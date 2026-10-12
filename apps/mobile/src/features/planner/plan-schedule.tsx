@@ -1,6 +1,6 @@
 import type { MealPlanInput } from '@vetify/planner-shared/meal-plans';
 import { StyleSheet, View } from 'react-native';
-import { Choice, Field, Notice } from '../../components/ui';
+import { Choice, Field } from '../../components/ui';
 import { PlanNumberField } from './plan-number-field';
 
 function suggestedTimes(count: number): string[] {
@@ -25,7 +25,7 @@ export function PlanSchedule({
           label="Existing daily food amount, grams"
           value={value.manualDailyGrams}
           placeholder="e.g. 160"
-          hint="Use the amount you already feed or were given by your veterinarian."
+          hint="Use your current amount or your vet's recommendation."
           onChange={(manualDailyGrams) => set({ ...value, manualDailyGrams })}
         />
       )}
@@ -45,7 +45,7 @@ export function PlanSchedule({
           value={time}
           maxLength={5}
           placeholder="HH:MM"
-          hint="Use 24-hour time, for example 18:30."
+          hint="24 hour time, e.g. 18:30."
           onChangeText={(next) => {
             const mealTimes = [...value.mealTimes];
             mealTimes[index] = next;
@@ -53,10 +53,6 @@ export function PlanSchedule({
           }}
         />
       ))}
-      <Notice>
-        The daily amount is divided evenly. Times are reminders for your schedule, not a change to
-        the daily amount.
-      </Notice>
     </View>
   );
 }
