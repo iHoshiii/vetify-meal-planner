@@ -72,6 +72,15 @@ describe('native social login', () => {
         'vetify-planner://auth/social',
       );
       expect(mocks.complete).toHaveBeenCalledExactlyOnceWith(code, verifier);
+      expect(mocks.begin).toHaveBeenCalledExactlyOnceWith({});
+    },
+  );
+
+  it.each([true, false])(
+    'forwards Remember me = %s to the credential exchange',
+    async (rememberMe) => {
+      await expect(loginWithSocial('google', { rememberMe })).resolves.toBe(true);
+      expect(mocks.begin).toHaveBeenCalledExactlyOnceWith({ rememberMe });
     },
   );
 

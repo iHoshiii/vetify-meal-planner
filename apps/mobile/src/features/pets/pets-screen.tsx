@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { Pet, PetInput } from '@vetify/planner-shared/pets';
 import { Button, Card, ErrorMessage, colors } from '../../components/ui';
+import { AppIcon } from '../../components/app-icon';
 import { usePets, useCreatePet, useUpdatePet } from '../../services/pet-queries';
 import { PetCard } from './pet-card';
 import { PetForm } from './pet-form';
@@ -36,9 +37,17 @@ export function PetsScreen({ today, onOpenPet }: { today: string; onOpenPet: (pe
   return (
     <View style={styles.container}>
       <View style={styles.heading}>
-        <Text style={styles.title}>Your pets</Text>
-        <Text style={styles.subtitle}>Plan portions and keep track of every meal.</Text>
-        <Button label="Add a pet" disabled={pending} onPress={() => openForm(null)} />
+        <Text style={styles.title}>Pets</Text>
+        {!!pets.data?.length && (
+          <Button
+            label="Add pet"
+            variant="secondary"
+            compact
+            icon={<AppIcon name="plus" size={16} color={colors.primary} />}
+            disabled={pending}
+            onPress={() => openForm(null)}
+          />
+        )}
       </View>
       {pets.isPending && (
         <ActivityIndicator accessibilityLabel="Loading pets" color={colors.primary} />
@@ -51,10 +60,21 @@ export function PetsScreen({ today, onOpenPet }: { today: string; onOpenPet: (pe
       )}
       {pets.data?.length === 0 && (
         <Card>
-          <Text style={styles.emptyTitle}>Meet your meal planner</Text>
-          <Text style={styles.subtitle}>
-            Add a pet to set up a feeding schedule and daily calorie budget.
-          </Text>
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <AppIcon name="paw" size={28} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>Add your first pet</Text>
+            <Text style={styles.subtitle}>Set up their meals in a few steps.</Text>
+            <View style={styles.emptyAction}>
+              <Button
+                label="Add pet"
+                icon={<AppIcon name="plus" size={18} color={colors.white} />}
+                disabled={pending}
+                onPress={() => openForm(null)}
+              />
+            </View>
+          </View>
         </Card>
       )}
       {pets.data?.map((pet) => (
@@ -72,9 +92,20 @@ export function PetsScreen({ today, onOpenPet }: { today: string; onOpenPet: (pe
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 18 },
-  heading: { gap: 12 },
-  title: { color: colors.ink, fontSize: 29, fontWeight: '800' },
-  subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22 },
-  emptyTitle: { color: colors.ink, fontSize: 19, fontWeight: '700', marginBottom: 8 },
+  container: { gap: 14 },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  title: { color: colors.ink, fontSize: 23, fontWeight: '700', flex: 1 },
+  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  empty: { alignItems: 'center', paddingVertical: 24, gap: 10 },
+  emptyIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#edf7f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '600' },
+  emptyAction: { alignSelf: 'stretch', marginTop: 8 },
 });

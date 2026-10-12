@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Keyboard,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,7 @@ import {
   type TextInput,
 } from 'react-native';
 import { ErrorMessage } from '../components/ui';
+import { AppIcon } from '../components/app-icon';
 import { ApiError } from '../services/api-error';
 import { AuthButton } from './auth-button';
 import { AuthField } from './auth-field';
@@ -41,6 +43,7 @@ export function LoginScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(initialError);
   const submitting = useRef(false);
@@ -85,6 +88,7 @@ export function LoginScreen({
     setMode(registering ? 'login' : 'signup');
     setPassword('');
     setConfirmPassword('');
+    setRememberMe(false);
     setError('');
   }
 
@@ -103,7 +107,7 @@ export function LoginScreen({
     void authenticate(() =>
       registering
         ? signup({ name: name.trim(), email: email.trim(), password, confirmPassword })
-        : login({ email: email.trim(), password }),
+        : login({ email: email.trim(), password }, { rememberMe }),
     );
   }
 
@@ -234,6 +238,21 @@ export function LoginScreen({
           ) : null}
           <ErrorMessage message={error} />
         </View>
+        {!registering && (
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel="Remember me"
+            accessibilityState={{ checked: rememberMe, disabled: pending }}
+            disabled={pending}
+            onPress={() => setRememberMe((value) => !value)}
+            style={styles.remember}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checked]}>
+              {rememberMe && <AppIcon name="check" size={14} color={authColors.surface} />}
+            </View>
+            <Text style={styles.rememberLabel}>Remember me</Text>
+          </Pressable>
+        )}
         <View
           style={[
             styles.submit,
@@ -279,7 +298,9 @@ export function LoginScreen({
                 variant="social"
                 icon={<SocialProviderIcon provider={provider.id} />}
                 disabled={pending}
-                onPress={() => void authenticate(() => loginWithSocial(provider.id))}
+                onPress={() =>
+                  void authenticate(() => loginWithSocial(provider.id, { rememberMe }))
+                }
               />
             </View>
           ))}
@@ -326,6 +347,25 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   fields: { gap: 16 },
+  remember: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checked: { backgroundColor: authColors.primary, borderColor: authColors.primary },
+  rememberLabel: { fontSize: 14, color: authColors.text },
   submit: { marginTop: 20 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24, marginBottom: 20 },
   line: { flex: 1, height: 1, backgroundColor: authColors.border },

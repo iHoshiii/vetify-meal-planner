@@ -29,7 +29,7 @@ The Expo project lives in `apps/mobile`, so direct CLI startup from the reposito
 
 Install Expo Go on your Android phone or iPhone and connect the phone and computer to the same Wi-Fi network. Scan the terminal QR code using Expo Go on Android or the Camera app on iPhone. On iPhone, sign in to Expo Go and run `npx.cmd expo login` on the computer with the same Expo account. See [Expo's device startup instructions](https://docs.expo.dev/get-started/start-developing/).
 
-Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
+Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. Check **Remember me** to stay signed in after closing and reopening the app; leave it unchecked to require login after a full restart. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
 
 For the same dummy consumer account as Vetify, run `npm.cmd run seed:account` here. It creates `user@gmail.com` with password `password123` in Vetify's configured development account database. Both apps can log in with it. Repeated runs keep an existing account unchanged, and the command refuses to run in production.
 
@@ -82,14 +82,26 @@ The app/API `.env.example` files describe configuration. Configure environment v
 ## Features
 
 - Multiple pet profiles with separate ownership, age provenance and nutrition observations.
+- A selected pet in the mobile header, with a pet switcher and separate user account actions for Pets, Export my data and Log out.
+- Mobile Foods, Tracker and Progress tabs: a food library, daily feeding logs and monthly recorded progress.
+- Twenty built-in dog ingredients with estimated calories, protein, fat and carbohydrates per 100 g, plus search and category filters. Built-in foods match the selected pet's species; cats need a separate cat-food catalogue, whose defaults await a provided list. Built-in entries are read-only; users can add and edit custom ingredients and packaged-food labels separately for each pet.
+- Food rows have Add and View on the left. View shows read-only composition; Add records a gram portion in the selected pet's daily diet. Recorded food snapshots survive later label edits, are included in monthly progress and owner exports, and can be removed from the Tracker.
+- Tracker shows daily Target, Added and Remaining for calories, protein and fat, plus logged carbohydrates. A confirmed current weight and nine-point body-condition assessment supports starting estimates for eligible, growth-complete adult dogs. Diary recording is available even when automatic targets require review.
+- Saved packaged-food labels are available during meal-plan setup. Individual ingredients are kept separate from the primary-food picker because they do not establish a complete diet.
 - Existing-amount schedules and starting portion estimates for eligible adult pets.
 - Guided setup, calorie-label conversion, server preview, explicit save and version history.
-- Today/week schedules, feeding and extras logs, daily calorie budget and review prompts.
-- Native Android and iOS screens with secure session storage. Auth and feeding writes require connectivity.
+- Feeding and extras logs, daily calorie budget and review prompts. Monthly progress preserves historical food density and plan versions; missing intake stays unknown.
+- Native Android and iOS screens with optional secure session storage. Auth and feeding writes require connectivity.
 - The browser client remains an installable PWA with a static offline shell.
 - Owner-scoped export and dry-run-first database migration tools.
 
 Legacy pet condition scores and newer nine-point observations remain distinct. This extraction preserves existing calculations and warnings.
+
+Daily dog references follow the [research energy method](docs/dog-meal-planner-research-and-blueprint.md#71-rer-and-one-method-selection): `70 × weightKg^0.75`, with one maintenance factor (1.4 for ordinary neutered adults, 1.6 for intact adults). A 6 kg neutered adult starts at approximately 376 kcal with the default factor; 430 kcal uses the illustrative 1.6 factor. Other activity levels, growth, reproduction, weight-change goals and clinical concerns require a reviewed plan instead of automatic multipliers. The disclosed FEDIAF 2025 adult profile gives protein/fat minimum comparisons, not exact macro splits or a recipe approval. Carbohydrates have no universal target in this profile. Missing composition stays unknown; it does not count as zero. Scheduled feeding logs and food diary entries contribute once to combined intake; record a consumed portion through one logging path.
+
+The ingredient catalog in `packages/shared/src/ingredient-catalog.ts` preserves the supplied table's food names and nutrition numbers. These are estimates without matched analytical source records or verified canine metabolizable energy; preparation and brand affect actual values. Ingredient calories and macros are stored per 100 g separately from packaged-food label calories, and missing custom values remain unknown. Catalog items are not complete recipes, and their estimates do not enter automatic primary-food portion calculations. See [the research's ingredient evidence requirements](docs/dog-meal-planner-research-and-blueprint.md#102-composition-sources-and-update-workflow) and [FDA's nutritional adequacy guidance](https://www.fda.gov/animal-veterinary/animal-health-literacy/complete-and-balanced-pet-food).
+
+Preparation notes use conservative guidance instead of the supplied treatment, dental-health and universal serving-frequency claims. Sources include [ASPCA's guidance on plain food and preparation](https://www.aspca.org/news/sharing-caring-foods-you-can-safely-share-your-pet), [FDA's xylitol warning](https://www.fda.gov/consumers/consumer-updates/paws-xylitol-its-dangerous-dogs), and [Merck's review of nutritional requirements](https://www.merckvetmanual.com/management-and-nutrition/nutrition-small-animals/nutritional-requirements-of-small-animals). These support general preparation notes, not independent verification of the table's nutrition values or a balanced recipe.
 
 ## Repository
 
@@ -122,6 +134,6 @@ Browser checks need Chromium installed with `npx playwright install chromium`. A
 
 ## Production integration
 
-The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Both apps use the same main account and subscription; the mobile header displays its verified Free or Pro plan and refreshes it on resume and at the authorization validity boundary. Existing planner endpoints retain authenticated access until a paid feature policy is agreed.
+The local mock is development-only. Production configuration rejects mock authentication and a loopback main API. Deploy the matching Vetify backend changes for token introspection, native email/password login, registration, refresh, logout and personal QR connection. Both apps use the same main account and subscription; the mobile Account screen displays its verified Free or Pro plan and refreshes it on resume and at the authorization validity boundary. Existing planner endpoints retain authenticated access until a paid feature policy is agreed.
 
 See [main integration](docs/core-integration.md), [deployment](docs/deployment.md) and [data migration/rollback](docs/migration.md). Deploy the API with a dedicated production database and distribute the native app. The main application's QR code points to the APK download now and the app-store listings later. Real data migration, DNS changes, signed native builds and deployment remain separate operations.

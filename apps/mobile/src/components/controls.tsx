@@ -8,15 +8,22 @@ export function Button({
   onPress,
   disabled,
   variant = 'primary',
+  icon,
+  compact = false,
+  accessibilityLabel,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: Variant;
+  icon?: ReactNode;
+  compact?: boolean;
+  accessibilityLabel?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -25,10 +32,18 @@ export function Button({
         variant === 'primary' && styles.primary,
         variant === 'danger' && styles.danger,
         variant === 'ghost' && styles.ghost,
+        compact && styles.compact,
         (pressed || disabled) && { opacity: 0.55 },
       ]}
     >
-      <Text style={[styles.label, (variant === 'primary' || variant === 'danger') && styles.light]}>
+      {icon}
+      <Text
+        style={[
+          styles.label,
+          compact && styles.compactLabel,
+          (variant === 'primary' || variant === 'danger') && styles.light,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -51,6 +66,7 @@ export function Toggle({
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: '#cbd5e1', true: colors.primary }}
+        thumbColor={colors.white}
       />
     </View>
   );
@@ -73,8 +89,20 @@ export function Notice({
   tone?: 'info' | 'warning' | 'error';
 }) {
   return (
-    <View style={[styles.notice, tone !== 'info' && { backgroundColor: '#fff1f2' }]}>
-      <Text style={{ color: tone === 'info' ? colors.ink : colors.danger, lineHeight: 21 }}>
+    <View
+      style={[
+        styles.notice,
+        tone === 'warning' && styles.warning,
+        tone === 'error' && styles.errorNotice,
+      ]}
+    >
+      <Text
+        style={{
+          color: tone === 'warning' ? '#92400e' : tone === 'error' ? colors.danger : colors.ink,
+          fontSize: 13,
+          lineHeight: 20,
+        }}
+      >
         {children}
       </Text>
     </View>
@@ -82,29 +110,37 @@ export function Notice({
 }
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e2f3ef',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
   },
-  primary: { backgroundColor: colors.primary },
-  danger: { backgroundColor: colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-  label: { color: colors.ink, fontSize: 15, fontWeight: '600' },
+  primary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  danger: { backgroundColor: colors.danger, borderColor: colors.danger },
+  ghost: { backgroundColor: 'transparent', borderColor: 'transparent' },
+  compact: { paddingHorizontal: 12, paddingVertical: 9 },
+  label: { color: colors.ink, fontSize: 15, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
+  compactLabel: { fontSize: 14 },
   light: { color: colors.white },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   toggleText: { flex: 1, color: colors.ink, fontSize: 15 },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 18,
-    gap: 14,
+    borderRadius: 14,
+    padding: 16,
+    gap: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   error: { color: colors.danger, lineHeight: 21 },
-  notice: { padding: 14, borderRadius: 12, backgroundColor: '#e2f3ef' },
+  notice: { padding: 12, borderRadius: 10, backgroundColor: colors.soft },
+  warning: { backgroundColor: '#fffbeb' },
+  errorNotice: { backgroundColor: '#fff1f2' },
 });

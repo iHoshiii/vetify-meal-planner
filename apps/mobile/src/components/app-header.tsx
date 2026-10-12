@@ -1,75 +1,94 @@
-import { useState } from 'react';
-import { Text, View, StyleSheet } from 'react-native';
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { apiFetch } from '../services/api';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getSession } from '../auth/session';
-import { logout } from '../auth/main-auth';
-import { useAccountPlan } from '../auth/auth-boundary';
-import { Button, colors, ErrorMessage } from './ui';
+import type { Pet } from '@vetify/planner-shared/pets';
+import { AppIcon } from './app-icon';
+import { colors } from './theme';
 
-export function AppHeader() {
-  const plan = useAccountPlan();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  async function perform(action: 'export' | 'logout') {
-    setPending(true);
-    setError('');
-    try {
-      if (action === 'logout') await logout();
-      else {
-        if (!(await Sharing.isAvailableAsync()))
-          throw new Error('File sharing is unavailable on this device.');
-        const data = await apiFetch('/export');
-        const file = new File(Paths.cache, 'vetify-planner-export.json');
-        try {
-          file.create({ overwrite: true });
-          file.write(JSON.stringify(data, null, 2));
-          await Sharing.shareAsync(file.uri, { mimeType: 'application/json', UTI: 'public.json' });
-        } finally {
-          if (file.exists) file.delete();
-        }
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not complete this action.');
-    } finally {
-      setPending(false);
-    }
-  }
+export function AppHeader({
+  pet,
+  onSwitchPet,
+  onOpenAccount,
+  switchingDisabled = false,
+}: {
+  pet?: Pet;
+  onSwitchPet: () => void;
+  onOpenAccount: () => void;
+  switchingDisabled?: boolean;
+}) {
+  const user = getSession()?.user;
   return (
     <View style={styles.header}>
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brand}>Vetify Planner</Text>
-          <Text style={styles.account}>
-            {getSession()?.user.name || getSession()?.user.email} · {plan}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={pet ? `Switch pet. Current pet: ${pet.name}` : 'Choose a pet'}
+        accessibilityState={{ disabled: switchingDisabled }}
+        disabled={switchingDisabled}
+        onPress={onSwitchPet}
+        style={({ pressed }) => [styles.brand, (pressed || switchingDisabled) && { opacity: 0.6 }]}
+      >
+        <View style={styles.mark}>
+          <AppIcon name="paw" size={23} />
+        </View>
+        <View style={styles.identity}>
+          <Text style={styles.brandName}>Vetify</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {pet?.name ?? 'Choose a pet'}
           </Text>
         </View>
-        <Button
-          label="Export"
-          variant="ghost"
-          disabled={pending}
-          onPress={() => void perform('export')}
-        />
-        <Button
-          label="Log out"
-          variant="ghost"
-          disabled={pending}
-          onPress={() => void perform('logout')}
-        />
-      </View>
-      <ErrorMessage message={error} />
+        <AppIcon name="chevron-down" size={16} color={colors.muted} />
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open account"
+        onPress={onOpenAccount}
+        style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.6 }]}
+      >
+        <Text style={styles.initial}>
+          {(user?.name || user?.email || 'V').slice(0, 1).toUpperCase()}
+        </Text>
+      </Pressable>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   header: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  brand: { fontWeight: '700', fontSize: 19, color: colors.ink },
-  account: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  brand: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginRight: 16,
+  },
+  mark: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  identity: { flexShrink: 1, minWidth: 0, gap: 1 },
+  brandName: { color: colors.muted, fontSize: 11 },
+  title: { fontWeight: '600', fontSize: 17, color: colors.ink },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initial: { fontSize: 16, fontWeight: '600', color: colors.primary },
 });

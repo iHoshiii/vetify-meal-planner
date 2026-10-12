@@ -26,9 +26,12 @@ export function PlanProgress({
   const mutation = useMutation({
     mutationFn: saveNutritionObservation,
     onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ownerQueryKey('nutrition-observations', plan.petId),
-      }),
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ownerQueryKey('nutrition-observations', plan.petId),
+        }),
+        queryClient.invalidateQueries({ queryKey: ownerQueryKey('monthly-progress', plan.petId) }),
+      ]),
   });
   const latest = observations.data?.find((item) => item.measuredOn >= plan.weightMeasuredOn);
   const weightChange = latest ? Math.abs(latest.weightKg - plan.petWeightKg) / plan.petWeightKg : 0;

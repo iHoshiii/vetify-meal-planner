@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import type { Pet, PetInput } from '@vetify/planner-shared/pets';
 import { Button, ErrorMessage, colors } from '../../components/ui';
+import { useScreenActive } from '../../components/screen-activity';
 import { PetBasics } from './pet-basics';
 import { PetAgeCare } from './pet-age-care';
 import { PetFoodWeight } from './pet-food-weight';
@@ -20,10 +21,12 @@ type Props = {
 };
 
 export function PetForm({ pet, today, pending, error, onSave, onCancel }: Props) {
+  const active = useScreenActive();
   const state = usePetForm(pet, today, onSave);
   const { form, set, step } = state;
   const review = step === petSteps.length - 1;
   useEffect(() => {
+    if (!active) return;
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!pending) {
         if (step > 0) state.setStep(step - 1);
@@ -32,13 +35,27 @@ export function PetForm({ pet, today, pending, error, onSave, onCancel }: Props)
       return true;
     });
     return () => listener.remove();
-  }, [step, pending, onCancel, state.setStep]);
+  }, [active, step, pending, onCancel, state.setStep]);
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{pet ? `Edit ${pet.name}` : 'Add your pet'}</Text>
-      <Text style={styles.progress}>
-        Step {step + 1} of {petSteps.length}: {petSteps[step]}
-      </Text>
+      <View style={styles.heading}>
+        <Text style={styles.title}>{pet ? 'Edit pet' : 'Add pet'}</Text>
+        <Button label="Cancel" variant="ghost" compact disabled={pending} onPress={onCancel} />
+      </View>
+      <View style={styles.stepHeading}>
+        <Text style={styles.stepTitle}>{petSteps[step]}</Text>
+        <Text style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${petSteps.length}`}>
+          {step + 1} / {petSteps.length}
+        </Text>
+      </View>
+      <View style={styles.progressTrack}>
+        {petSteps.map((label, index) => (
+          <View
+            key={label}
+            style={[styles.progressSegment, index <= step && styles.progressComplete]}
+          />
+        ))}
+      </View>
       <View pointerEvents={pending ? 'none' : 'auto'} style={styles.fields}>
         {step === 0 && <PetBasics form={form} set={set} />}
         {step === 1 && (
@@ -57,28 +74,44 @@ export function PetForm({ pet, today, pending, error, onSave, onCancel }: Props)
       <ErrorMessage message={state.error || error} />
       <View style={styles.actions}>
         {step > 0 && (
-          <Button
-            label="Back"
-            variant="secondary"
-            disabled={pending}
-            onPress={() => state.setStep(step - 1)}
-          />
+          <View style={styles.backAction}>
+            <Button
+              label="Back"
+              variant="secondary"
+              disabled={pending}
+              onPress={() => state.setStep(step - 1)}
+            />
+          </View>
         )}
-        <Button
-          label={pending ? 'Saving...' : review ? 'Save pet' : 'Continue'}
-          disabled={pending}
-          onPress={state.submit}
-        />
-        <Button label="Cancel" variant="ghost" disabled={pending} onPress={onCancel} />
+        <View style={styles.continueAction}>
+          <Button
+            label={pending ? 'Saving...' : review ? 'Save pet' : 'Continue'}
+            disabled={pending}
+            onPress={state.submit}
+          />
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 16 },
-  title: { color: colors.ink, fontSize: 25, fontWeight: '800' },
-  progress: { color: colors.muted, fontSize: 14 },
-  fields: { gap: 16 },
-  actions: { gap: 10 },
+  container: { gap: 14 },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  title: { color: colors.ink, fontSize: 23, fontWeight: '700', flex: 1 },
+  stepHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  stepTitle: { color: colors.ink, fontSize: 16, fontWeight: '600', flex: 1 },
+  progress: { color: colors.muted, fontSize: 13 },
+  progressTrack: { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  progressSegment: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.border },
+  progressComplete: { backgroundColor: colors.primary },
+  fields: { gap: 14 },
+  actions: { flexDirection: 'row', gap: 8, paddingTop: 4 },
+  backAction: { flex: 1, minWidth: 0 },
+  continueAction: { flex: 2, minWidth: 0 },
 });
