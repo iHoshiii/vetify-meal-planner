@@ -1,6 +1,6 @@
 # Connect the planner to Vetify main
 
-The planner has its own database and uses Vetify main as its account and subscription authority. The matching Vetify backend implements `/api/v1/auth/introspect` and native sessions. Deploy both repositories together for these integrations. Paid feature restrictions remain a separate policy decision.
+The planner has its own database and uses Vetify main as its account and subscription authority. Main currently implements introspection version 1; Planner now requires version 2 with issuer/audience and email verification fields. Coordinated deployment and joint testing remain pending. See [the shared-account audit](shared-account-audit.md) for exact backend changes and database findings. Paid feature restrictions remain a separate policy decision.
 
 ## Native login and registration
 
@@ -14,12 +14,20 @@ For a user already signed in on a computer, Vetify Settings creates a short-live
 
 ## Required main API
 
-`POST /api/v1/auth/introspect` uses the presented main-issued Bearer token. Main verifies signature, token expiry, native session validity and current account state. Its response is the versioned contract in `packages/shared`, with these fields:
+`POST /api/v1/auth/introspect` uses the presented main-issued Bearer token. Main must verify signature, token expiry, issuer, intended audience, native session validity and current account state. Its response is the versioned contract in `packages/shared`, with these fields:
 
 ```json
 {
-  "version": 1,
-  "user": { "id": "MAIN_USER_ID", "role": "user", "status": "active" },
+  "version": 2,
+  "issuer": "https://api.vetify.com",
+  "audience": "vetify-meal-planner",
+  "user": {
+    "id": "MAIN_USER_ID",
+    "role": "user",
+    "status": "active",
+    "provider": "local",
+    "emailVerified": true
+  },
   "region": { "timeZone": "Asia/Manila" },
   "subscription": { "plan": "free", "status": "active", "expiresAt": null },
   "entitlements": [],

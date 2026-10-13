@@ -1,6 +1,6 @@
 # vetify-meal-planner
 
-Native pet meal planner for Android and iOS using Expo and React Native, with an Express API and its own MongoDB database. The browser client is for local development and tests. Production distributes a mobile app and hosts the backend API. Vetify main provides the shared accounts and sessions. The browser preview uses a local mock account service.
+Native pet meal planner for Android and iOS using Expo and React Native, with an Express API and its own MongoDB database. The browser client is for local development and tests. Vetify main provides shared accounts and sessions. Planner now requires the coordinated version 2 contract described in [the shared-account audit](docs/shared-account-audit.md); the inspected main backend still requires changes and joint testing. The browser preview uses a local mock account service.
 
 ## Run locally
 
@@ -29,7 +29,7 @@ The Expo project lives in `apps/mobile`, so direct CLI startup from the reposito
 
 Install Expo Go on your Android phone or iPhone and connect the phone and computer to the same Wi-Fi network. Scan the terminal QR code using Expo Go on Android or the Camera app on iPhone. On iPhone, sign in to Expo Go and run `npx.cmd expo login` on the computer with the same Expo account. See [Expo's device startup instructions](https://docs.expo.dev/get-started/start-developing/).
 
-Log in with your Vetify email and password, or sign up in the app. Both applications use the same accounts. Check **Remember me** to stay signed in after closing and reopening the app; leave it unchecked to require login after a full restart. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
+After deploying the coordinated main contract, log in with your Vetify credentials or sign up in the app and confirm your email. Check **Remember me** to stay signed in after closing and reopening the app; leave it unchecked to require login after a full restart. To connect an account already signed in on a computer, scan its personal connection QR from Vetify Settings. This connection QR is separate from the Expo development QR and the app download QR.
 
 For the same dummy consumer account as Vetify, run `npm.cmd run seed:account` here. It creates `user@gmail.com` with password `password123` in Vetify's configured development account database. Both apps can log in with it. Repeated runs keep an existing account unchanged, and the command refuses to run in production.
 
