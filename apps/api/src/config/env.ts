@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { assertPlannerNamespace } from './database-access.js';
 
 const settings = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -6,6 +7,7 @@ const settings = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PLANNER_MONGODB_URI: z.string().min(1).default('mongodb://127.0.0.1:27018/vetify_meal_planner'),
   MAIN_API_URL: z.string().url().default('http://127.0.0.1:8002/api/v1'),
+  MAIN_TOKEN_ISSUER: z.string().min(1).optional(),
   ALLOWED_ORIGINS: z.string().default('http://127.0.0.1:5174'),
   AUTH_MODE: z.enum(['main', 'mock']).default('mock'),
   INTROSPECTION_TIMEOUT_MS: z.coerce.number().int().min(1).max(30000).default(5000),
@@ -16,6 +18,10 @@ export type ApiConfig = z.infer<typeof settings>;
 
 export function loadConfig(input: Record<string, unknown> = process.env): ApiConfig {
   const config = settings.parse(input);
+  assertPlannerNamespace(config.PLANNER_MONGODB_URI);
+  if (config.AUTH_MODE === 'main' && !config.MAIN_TOKEN_ISSUER) {
+    throw new Error('Main authentication requires the agreed MAIN_TOKEN_ISSUER');
+  }
   const main = new URL(config.MAIN_API_URL);
   const host = main.hostname.toLowerCase().replace(/\.$/, '');
   const loopback =

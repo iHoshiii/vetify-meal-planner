@@ -240,7 +240,10 @@ it('applies Remember me to social login and resets it when switching to signup',
   fireEvent.click(screen.getByRole('checkbox', { name: 'Remember me' }));
   fireEvent.click(screen.getByRole('button', { name: 'Google' }));
   await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
-  expect(auth.social).toHaveBeenCalledExactlyOnceWith('google', { rememberMe: true });
+  expect(auth.social).toHaveBeenCalledExactlyOnceWith('google', {
+    rememberMe: true,
+    intent: 'login',
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Sign up' }));
   expect(screen.queryByRole('checkbox', { name: 'Remember me' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
@@ -490,7 +493,10 @@ it.each([
   render(createElement(LoginScreen, { onSignedIn }));
   fireEvent.click(screen.getByRole('button', { name: label }));
   await waitFor(() => expect(onSignedIn).toHaveBeenCalledTimes(1));
-  expect(auth.social).toHaveBeenCalledExactlyOnceWith(provider, { rememberMe: false });
+  expect(auth.social).toHaveBeenCalledExactlyOnceWith(provider, {
+    rememberMe: false,
+    intent: 'login',
+  });
   expect(auth.login).not.toHaveBeenCalled();
   expect(auth.signup).not.toHaveBeenCalled();
 });

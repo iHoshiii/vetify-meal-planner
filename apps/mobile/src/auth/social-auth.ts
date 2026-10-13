@@ -4,7 +4,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { z } from 'zod';
 import { nativeClientId, nativeSocialRedirectUri } from '@vetify/planner-shared/native-auth';
 import { serverUrls } from '../config';
-import { ApiError, readResponse } from '../services/api-error';
+import { ApiError } from '../services/api-error';
+import { requestNativeAccount } from './native-session-request';
 import { beginSocialLogin, type SignInOptions } from './main-auth';
 
 export type SocialProvider = 'facebook' | 'google' | 'tiktok';
@@ -12,7 +13,9 @@ const startSchema = z.object({ url: z.string().url() });
 const socialErrors: Record<string, string> = {
   blocked: 'This account cannot sign in.',
   unconfigured: 'Social login is unavailable.',
-  'signup-required': 'This social account needs a linked Vetify account.',
+  'signup-required': 'Create an account first to use the app.',
+  'account-link-required':
+    'Sign in to Vetify Settings and link this login method after authenticating both methods.',
 };
 
 async function randomHex(length: number) {
@@ -22,7 +25,7 @@ async function randomHex(length: number) {
 
 export async function loginWithSocial(
   provider: SocialProvider,
-  options: SignInOptions = {},
+  options: SignInOptions & { intent?: 'login' | 'signup' } = {},
 ): Promise<boolean> {
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient)
     throw new Error(
@@ -36,20 +39,14 @@ export async function loginWithSocial(
   });
   const codeChallenge = digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const main = serverUrls().main;
-  const payload = await readResponse(
-    await fetch(`${main}/auth/native/oauth/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider,
-        codeChallenge,
-        state,
-        clientId: nativeClientId,
-        redirectUri: nativeSocialRedirectUri,
-      }),
-      signal: AbortSignal.timeout(15000),
-    }),
-  );
+  const payload = await requestNativeAccount('oauth/start', {
+    intent: options.intent ?? 'login',
+    provider,
+    codeChallenge,
+    state,
+    clientId: nativeClientId,
+    redirectUri: nativeSocialRedirectUri,
+  });
   const parsed = startSchema.safeParse(payload);
   if (!parsed.success) throw new ApiError(503, 'Could not start social login.');
   const start = new URL(parsed.data.url);

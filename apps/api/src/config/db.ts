@@ -1,4 +1,5 @@
 import { MongoClient, TopologyType, type Db } from 'mongodb';
+import { assertPlannerDatabaseAccess, assertPlannerNamespace } from './database-access.js';
 
 let client: MongoClient | null = null;
 let database: Db | null = null;
@@ -7,6 +8,7 @@ let connectedUri: string | null = null;
 let responding = false;
 
 export function connectDb(uri: string): Promise<Db> {
+  assertPlannerNamespace(uri);
   if (connection) {
     if (connectedUri !== uri) throw new Error('Cannot change database while connected');
     return connection;
@@ -23,6 +25,7 @@ export function connectDb(uri: string): Promise<Db> {
   connection = candidate
     .connect()
     .then(async () => {
+      await assertPlannerDatabaseAccess(candidate, uri);
       await candidate.db().command({ ping: 1 });
       client = candidate;
       database = candidate.db();

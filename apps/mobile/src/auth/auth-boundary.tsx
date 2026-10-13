@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AccountQueries } from './account-queries';
 import type { Introspection } from '@vetify/planner-shared/core-contract';
 import { Button, colors, ErrorMessage } from '../components/ui';
 import { apiFetch, ApiError } from '../services/api';
@@ -23,6 +23,8 @@ import {
   type PrincipalSnapshot,
 } from './principal-refresh';
 import { usePrincipalRefresh } from './use-principal-refresh';
+import { needsEmailVerification } from './account-contract';
+import { EmailVerificationScreen } from './email-verification-screen';
 
 const PrincipalContext = createContext<PrincipalSnapshot | null>(null);
 export const usePrincipal = () => useContext(PrincipalContext)?.principal ?? null;
@@ -32,7 +34,9 @@ export function useAccountPlan() {
 }
 export function AuthBoundary({ children }: { children: ReactNode }) {
   const session = useSyncExternalStore(subscribeSession, getSession);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'unconnected'>('loading');
+  const [status, setStatus] = useState<
+    'loading' | 'ready' | 'error' | 'unconnected' | 'verification'
+  >('loading');
   const [attempt, setAttempt] = useState(0);
   const [message, setMessage] = useState('');
   const [principal, setPrincipal] = useState<Introspection | null>(null);
@@ -44,7 +48,13 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
   const onRefusal = useCallback((error: ApiError) => {
     setMessage(error.reason === 'login-required' ? '' : error.message);
     setPrincipal(null);
-    setStatus(error.status === 401 ? 'unconnected' : 'error');
+    setStatus(
+      error.reason === 'email-verification-required'
+        ? 'verification'
+        : error.status === 401
+          ? 'unconnected'
+          : 'error',
+    );
   }, []);
   const currentPrincipal = usePrincipalRefresh(
     principal,
@@ -64,6 +74,8 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     authentication
       .then(() => {
         if (!active) return;
+        if (getSession() && needsEmailVerification(getSession()!.user))
+          throw new ApiError(403, 'Confirm your email.', 'email-verification-required');
         const timeout = setTimeout(() => controller.abort(), 15000);
         return apiFetch('/session', { signal: controller.signal }).finally(() =>
           clearTimeout(timeout),
@@ -80,7 +92,9 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        if (error instanceof ApiError && error.status === 401) {
+        if (error instanceof ApiError && error.reason === 'email-verification-required') {
+          setStatus('verification');
+        } else if (error instanceof ApiError && error.status === 401) {
           setMessage(error.reason === 'login-required' ? '' : error.message);
           setPrincipal(null);
           setStatus('unconnected');
@@ -100,6 +114,14 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
       setAttempt((value) => value + 1);
     }
   }, [session?.user.id, principal]);
+  if (status === 'verification' && session)
+    return (
+      <EmailVerificationScreen
+        key={session.user.id}
+        session={session}
+        onConfirmed={() => setAttempt((value) => value + 1)}
+      />
+    );
   if (status === 'error')
     return (
       <View style={{ padding: 24, gap: 18 }}>
@@ -135,9 +157,4 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
       <PrincipalContext.Provider value={currentPrincipal}>{children}</PrincipalContext.Provider>
     </AccountQueries>
   );
-}
-function AccountQueries({ children }: { children: ReactNode }) {
-  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }));
-  useEffect(() => () => client.clear(), [client]);
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

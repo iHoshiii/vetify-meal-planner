@@ -6,7 +6,7 @@ import { testConfig, principals } from './fixtures.js';
 let mongo: MongoMemoryServer | undefined;
 export async function startTestDb() {
   mongo = await MongoMemoryServer.create();
-  testConfig.PLANNER_MONGODB_URI = mongo.getUri();
+  testConfig.PLANNER_MONGODB_URI = mongo.getUri('planner_fixture');
   await ensureIndexes(await connectDb(testConfig.PLANNER_MONGODB_URI));
 }
 export async function stopTestDb() {

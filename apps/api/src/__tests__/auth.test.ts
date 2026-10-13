@@ -80,6 +80,7 @@ describe('authoritative main authorization', () => {
       loadConfig({
         NODE_ENV: 'production',
         AUTH_MODE: 'main',
+        MAIN_TOKEN_ISSUER: 'https://api.vetify.com',
         MAIN_API_URL: 'https://localhost/api/v1',
       }),
     ).toThrow('Production requires');
@@ -88,6 +89,7 @@ describe('authoritative main authorization', () => {
       loadConfig({
         NODE_ENV: 'production',
         AUTH_MODE: 'main',
+        MAIN_TOKEN_ISSUER: 'https://api.vetify.com',
         MAIN_API_URL: 'https://api.vetify.com/api/v1',
       }).AUTH_MODE,
     ).toBe('main');

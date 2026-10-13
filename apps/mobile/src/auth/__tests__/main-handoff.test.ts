@@ -13,12 +13,26 @@ vi.mock('../auth-diagnostics', () => ({ reportAuthFailure: vi.fn() }));
 const refreshKey = 'vetify.remembered-refresh-token';
 const oldSession = {
   accessToken: 'old-access',
-  user: { id: 'owner-a', name: 'Owner A', email: 'a@example.test', role: 'user' },
+  user: {
+    id: 'owner-a',
+    name: 'Owner A',
+    email: 'a@example.test',
+    role: 'user',
+    provider: 'local',
+    emailVerified: true,
+  },
 };
 const nextSession = {
   accessToken: 'main-issued-access',
   refreshToken: 'main-issued-refresh',
-  user: { id: 'owner-b', name: 'Owner B', email: 'b@example.test', role: 'user' },
+  user: {
+    id: 'owner-b',
+    name: 'Owner B',
+    email: 'b@example.test',
+    role: 'user',
+    provider: 'local',
+    emailVerified: true,
+  },
 };
 const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });

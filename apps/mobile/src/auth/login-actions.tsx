@@ -86,7 +86,14 @@ export function LoginActions({
               variant="social"
               icon={<SocialProviderIcon provider={provider.id} />}
               disabled={pending}
-              onPress={() => void authenticate(() => loginWithSocial(provider.id, { rememberMe }))}
+              onPress={() =>
+                void authenticate(() =>
+                  loginWithSocial(provider.id, {
+                    rememberMe,
+                    intent: registering ? 'signup' : 'login',
+                  }),
+                )
+              }
             />
           </View>
         ))}

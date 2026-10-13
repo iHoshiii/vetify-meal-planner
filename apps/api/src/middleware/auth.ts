@@ -15,10 +15,12 @@ export type Fetcher = typeof fetch;
 const unavailable = () =>
   new AppError(503, 'Account service is unavailable. Please retry.', 'main-unavailable');
 
-function validatePrincipal(value: unknown): Introspection {
+function validatePrincipal(value: unknown, config: ApiConfig): Introspection {
   const parsed = introspectionSchema.safeParse(value);
   if (!parsed.success) throw unavailable();
   const principal = parsed.data;
+  const issuer = config.MAIN_TOKEN_ISSUER ?? new URL(config.MAIN_API_URL).origin;
+  if (principal.issuer !== issuer) throw AppError.unauthorized('Invalid token issuer.');
   const now = Date.now();
   const tokenExpiry = Date.parse(principal.tokenExpiresAt);
   const validUntil = Date.parse(principal.validUntil);
@@ -33,6 +35,13 @@ function validatePrincipal(value: unknown): Introspection {
   }
   if (principal.user.status !== 'active') {
     throw new AppError(403, 'This account cannot access the planner.', 'account-blocked');
+  }
+  if (principal.user.provider === 'local' && !principal.user.emailVerified) {
+    throw new AppError(
+      403,
+      'Confirm your email before using the planner.',
+      'email-verification-required',
+    );
   }
   if (principal.subscription.expiresAt) {
     const boundary = Date.parse(principal.subscription.expiresAt);
@@ -55,10 +64,18 @@ export function createIntrospector(config: ApiConfig, fetcher: Fetcher = fetch) 
       });
       if (response.status === 401) throw AppError.unauthorized();
       if (response.status === 403) {
+        const refusal = await response.json().catch(() => null);
+        if (refusal?.reason === 'email-verification-required') {
+          throw new AppError(
+            403,
+            'Confirm your email before using the planner.',
+            'email-verification-required',
+          );
+        }
         throw new AppError(403, 'This account cannot access the planner.', 'account-blocked');
       }
       if (!response.ok) throw unavailable();
-      return validatePrincipal(await response.json());
+      return validatePrincipal(await response.json(), config);
     } catch (cause) {
       if (cause instanceof AppError) throw cause;
       throw unavailable();

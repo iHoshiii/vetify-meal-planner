@@ -18,7 +18,14 @@ const legacyRefreshKey = 'vetify.refresh-token';
 const authResponse = {
   accessToken: 'new-access-token',
   refreshToken: 'new-refresh-token',
-  user: { id: 'owner-a', name: 'Owner', email: 'owner@example.test', role: 'user' },
+  user: {
+    id: 'owner-a',
+    name: 'Owner',
+    email: 'owner@example.test',
+    role: 'user',
+    provider: 'local',
+    emailVerified: true,
+  },
 };
 const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
@@ -295,6 +302,54 @@ describe('native account credentials', () => {
       'http-error',
       409,
     );
+  });
+  it('uses the exact invalid-password message while keeping missing-account errors distinct', async () => {
+    const { login } = await modules();
+    mocks.fetch.mockResolvedValueOnce(response({ error: 'Email or password is incorrect.' }, 401));
+    await expect(login({ email: 'owner@example.test', password: 'wrong' })).rejects.toMatchObject({
+      status: 401,
+      message: 'Invalid credentials',
+    });
+    mocks.fetch.mockResolvedValueOnce(
+      response(
+        { error: 'Create an account first to use the app.', reason: 'account-not-found' },
+        401,
+      ),
+    );
+    await expect(login({ email: 'missing@example.test', password: 'wrong' })).rejects.toMatchObject(
+      { reason: 'account-not-found', message: 'Create an account first to use the app.' },
+    );
+    mocks.fetch.mockResolvedValueOnce(
+      response({ error: 'upstream detail', reason: 'account-not-found' }, 503),
+    );
+    await expect(login({ email: 'owner@example.test', password: 'wrong' })).rejects.toMatchObject({
+      status: 503,
+      reason: 'main-unavailable',
+    });
+  });
+  it('preserves confirmation timing and the canonical professional profile on signup and refresh', async () => {
+    const auth = await modules();
+    const unverified = {
+      ...authResponse,
+      user: { ...authResponse.user, role: 'professional', emailVerified: false },
+      emailVerification: {
+        sent: true,
+        expiresAt: '2026-10-13T15:05:00.000Z',
+        resendAvailableAt: '2026-10-13T15:01:00.000Z',
+      },
+    };
+    mocks.fetch.mockResolvedValueOnce(response(unverified));
+    await auth.signup({
+      name: 'Owner',
+      email: 'owner@example.test',
+      password: 'Secret123!',
+      confirmPassword: 'Secret123!',
+    });
+    expect(auth.getSession()?.user).toEqual(unverified.user);
+    expect(auth.getSession()?.emailVerification).toEqual(unverified.emailVerification);
+    mocks.fetch.mockResolvedValueOnce(response({ ...unverified, emailVerification: undefined }));
+    await auth.refreshSession();
+    expect(auth.getSession()?.emailVerification).toEqual(unverified.emailVerification);
   });
 
   it('retains the existing session when the refresh server is unreachable', async () => {

@@ -6,8 +6,10 @@ import { writeSession } from '@/auth/session';
 import { apiFetch } from '@/services/api';
 
 const principal = {
-  version: 1,
-  user: { id: 'owner', role: 'user', status: 'active' },
+  version: 2,
+  issuer: 'http://127.0.0.1:8002',
+  audience: 'vetify-meal-planner',
+  user: { id: 'owner', role: 'user', status: 'active', provider: 'local', emailVerified: true },
   region: { timeZone: 'Asia/Manila' },
   subscription: { plan: 'free', status: null, expiresAt: null },
   entitlements: [],

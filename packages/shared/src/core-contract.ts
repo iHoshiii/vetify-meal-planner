@@ -15,11 +15,15 @@ const timeZone = z
 
 export const introspectionSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
+    issuer: z.string().min(1),
+    audience: z.literal('vetify-meal-planner'),
     user: z.object({
       id: z.string().min(1).max(128),
       role: z.enum(['user', 'professional', 'admin']),
       status: z.enum(['active', 'suspended', 'banned', 'deactivated']),
+      provider: z.enum(['local', 'google', 'facebook', 'tiktok']),
+      emailVerified: z.boolean(),
     }),
     region: z.object({ timeZone: timeZone.default('Asia/Manila') }),
     subscription: z.object({

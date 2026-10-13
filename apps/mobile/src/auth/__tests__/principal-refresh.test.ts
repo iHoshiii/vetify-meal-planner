@@ -12,8 +12,16 @@ function principal(
   settings: { pro?: boolean; ttl?: number; ownerId?: string } = {},
 ): Introspection {
   return {
-    version: 1,
-    user: { id: settings.ownerId ?? 'owner', role: 'user', status: 'active' },
+    version: 2,
+    issuer: 'http://127.0.0.1:8002',
+    audience: 'vetify-meal-planner',
+    user: {
+      id: settings.ownerId ?? 'owner',
+      role: 'user',
+      status: 'active',
+      provider: 'local',
+      emailVerified: true,
+    },
     region: { timeZone: 'Asia/Manila' },
     subscription: {
       plan: settings.pro ? 'pro' : 'free',

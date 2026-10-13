@@ -19,7 +19,7 @@ export function createSessionStore(now = Date.now, proCapabilities = ['planner.d
     const accessToken = randomBytes(24).toString('hex');
     access.set(accessToken, { sessionId, expiresAt: now() + 15 * 60_000 });
     const { id, name, email, role } = session.user;
-    return { accessToken, user: { id, name, email, role } };
+    return { accessToken, user: { id, name, email, role, provider: 'local', emailVerified: true } };
   }
   return {
     login(user: DemoUser) {
@@ -41,8 +41,10 @@ export function createSessionStore(now = Date.now, proCapabilities = ['planner.d
       const { id, role, status, plan } = session.user;
       const boundary = new Date(Math.min(issued.expiresAt, session.expiresAt)).toISOString();
       return {
-        version: 1,
-        user: { id, role, status },
+        version: 2,
+        issuer: 'http://127.0.0.1:8002',
+        audience: 'vetify-meal-planner',
+        user: { id, role, status, provider: 'local', emailVerified: true },
         region: { timeZone: 'Asia/Manila' },
         subscription: { plan, status: plan === 'pro' ? 'active' : null, expiresAt: null },
         entitlements: plan === 'pro' ? proCapabilities : [],

@@ -10,8 +10,10 @@ export const testConfig = loadConfig({ NODE_ENV: 'test', AUTH_CACHE_TTL_SECONDS:
 export const principals = new Map<string, Introspection>();
 export function principal(id = new ObjectId().toHexString()): Introspection {
   return {
-    version: 1,
-    user: { id, role: 'user', status: 'active' },
+    version: 2,
+    issuer: 'http://127.0.0.1:8002',
+    audience: 'vetify-meal-planner',
+    user: { id, role: 'user', status: 'active', provider: 'local', emailVerified: true },
     region: { timeZone: 'Asia/Manila' },
     subscription: { plan: 'free', status: null, expiresAt: null },
     entitlements: [],

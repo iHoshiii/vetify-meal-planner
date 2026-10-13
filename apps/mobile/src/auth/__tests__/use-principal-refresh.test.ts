@@ -30,8 +30,10 @@ import { accountPlanLabel } from '../principal-refresh';
 
 function principal(ownerId = 'owner', pro = false): Introspection {
   return {
-    version: 1,
-    user: { id: ownerId, role: 'user', status: 'active' },
+    version: 2,
+    issuer: 'http://127.0.0.1:8002',
+    audience: 'vetify-meal-planner',
+    user: { id: ownerId, role: 'user', status: 'active', provider: 'local', emailVerified: true },
     region: { timeZone: 'Asia/Manila' },
     subscription: { plan: pro ? 'pro' : 'free', status: pro ? 'active' : null, expiresAt: null },
     entitlements: [],

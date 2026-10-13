@@ -25,6 +25,7 @@ vi.mock('../../config', () => ({
   serverUrls: () => ({ main: 'http://localhost:5000/api/v1' }),
 }));
 vi.mock('../main-auth', () => ({ beginSocialLogin: mocks.begin }));
+vi.mock('../auth-diagnostics', () => ({ reportAuthFailure: vi.fn() }));
 import { loginWithSocial } from '../social-auth';
 
 const verifier = 'ab'.repeat(32);
@@ -60,6 +61,7 @@ describe('native social login', () => {
       await expect(loginWithSocial(provider)).resolves.toBe(true);
       const body = JSON.parse(mocks.fetch.mock.calls[0][1].body);
       expect(body).toEqual({
+        intent: 'login',
         provider,
         codeChallenge: createHash('sha256').update(verifier).digest('base64url'),
         state,
@@ -129,8 +131,25 @@ describe('native social login', () => {
       type: 'success',
       url: `vetify-planner://auth/social?error=signup-required&state=${state}`,
     });
-    await expect(loginWithSocial('tiktok')).rejects.toThrow('needs a linked Vetify account');
+    await expect(loginWithSocial('tiktok')).rejects.toThrow(
+      'Create an account first to use the app.',
+    );
     expect(mocks.complete).not.toHaveBeenCalled();
+  });
+  it('sends explicit signup intent without implicitly creating accounts during login', async () => {
+    await loginWithSocial('google', { intent: 'signup' });
+    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body).intent).toBe('signup');
+  });
+  it('explains explicit linking and keeps an outage separate from a missing account', async () => {
+    mocks.browser.mockResolvedValueOnce({
+      type: 'success',
+      url: `vetify-planner://auth/social?error=account-link-required&state=${state}`,
+    });
+    await expect(loginWithSocial('google')).rejects.toThrow('after authenticating both methods');
+    mocks.fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(loginWithSocial('google')).rejects.toMatchObject({
+      reason: 'network-unreachable',
+    });
   });
 
   it.each([
@@ -146,9 +165,13 @@ describe('native social login', () => {
     expect(mocks.complete).not.toHaveBeenCalled();
   });
 
-  it('shows server configuration errors without opening a browser', async () => {
+  it('shows a connection error on provider service failure without opening a browser', async () => {
     mocks.fetch.mockResolvedValueOnce(response({ error: 'Google login is unavailable.' }, 503));
-    await expect(loginWithSocial('google')).rejects.toThrow('Google login is unavailable.');
+    await expect(loginWithSocial('google')).rejects.toMatchObject({
+      status: 503,
+      reason: 'main-unavailable',
+      message: 'Cannot connect to Vetify. Please try again.',
+    });
     expect(mocks.browser).not.toHaveBeenCalled();
   });
 });

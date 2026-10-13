@@ -33,6 +33,8 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
           throw new ApiError(503, 'The planner returned an invalid account session.');
         if (parsed.data.user.status !== 'active')
           throw new ApiError(403, 'This account cannot access the planner.');
+        if (parsed.data.user.id !== getSession()?.user.id)
+          throw new ApiError(503, 'The account session changed. Try again.');
         if (active) {
           setAccountTimeZone(parsed.data.region.timeZone);
           setPrincipal(parsed.data);
@@ -81,7 +83,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         </button>
       </main>
     );
-  if (!session) return null;
+  if (!session || principal?.user.id !== session.user.id) return null;
   return (
     <AccountQueries key={session.user.id}>
       <PrincipalContext.Provider value={principal}>{children}</PrincipalContext.Provider>

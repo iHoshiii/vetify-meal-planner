@@ -40,9 +40,25 @@ const services = [
   {
     name: 'api',
     cwd: '.',
-    args: ['node_modules/tsx/dist/cli.mjs', 'watch', 'apps/api/src/index.ts'],
+    args: [
+      '--env-file-if-exists=apps/api/.env',
+      'node_modules/tsx/dist/cli.mjs',
+      'watch',
+      'apps/api/src/index.ts',
+    ],
     env: {
-      ...(web ? {} : { HOST: '0.0.0.0', AUTH_MODE: 'main', MAIN_API_URL: mainApiUrl }),
+      ...(web
+        ? {
+            AUTH_MODE: 'mock',
+            MAIN_API_URL: 'http://127.0.0.1:8002/api/v1',
+            MAIN_TOKEN_ISSUER: 'http://127.0.0.1:8002',
+          }
+        : {
+            HOST: '0.0.0.0',
+            AUTH_MODE: 'main',
+            MAIN_API_URL: mainApiUrl,
+            MAIN_TOKEN_ISSUER: process.env.MAIN_TOKEN_ISSUER ?? new URL(mainApiUrl).origin,
+          }),
       ...(process.argv.includes('--local-db')
         ? { PLANNER_MONGODB_URI: 'mongodb://127.0.0.1:27018/vetify_meal_planner' }
         : {}),

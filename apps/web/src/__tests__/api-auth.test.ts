@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '@/services/api';
-import { refreshSession } from '@/auth/main-auth';
+import { logout, refreshSession } from '@/auth/main-auth';
 import {
   accountToday,
   clearDrafts,
@@ -89,6 +89,7 @@ describe('separate planner and account requests', () => {
   });
 
   it('does not recursively refresh when replay is also unauthorized', async () => {
+    writeSession({ accessToken: 'old', user });
     const fetcher = vi.fn(async (url: string) =>
       url.includes('/auth/refresh')
         ? json({ accessToken: 'fresh', user })
@@ -97,6 +98,43 @@ describe('separate planner and account requests', () => {
     vi.stubGlobal('fetch', fetcher);
     await expect(apiFetch('/pets')).rejects.toMatchObject({ status: 401 });
     expect(fetcher.mock.calls.filter(([url]) => url.includes('/auth/refresh'))).toHaveLength(1);
+  });
+  it('rejects an old owner response after switching accounts', async () => {
+    writeSession({ accessToken: 'one', user });
+    let release!: (response: Response) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      ),
+    );
+    const pending = apiFetch('/pets');
+    writeSession({ accessToken: 'two', user: { ...user, id: 'owner-two' } });
+    release(json({ pets: ['owner-one-data'] }));
+    await expect(pending).rejects.toMatchObject({
+      status: 401,
+      message: 'The account session changed.',
+    });
+    expect(getSession()?.user.id).toBe('owner-two');
+  });
+  it('does not restore a logged-out account when its pending refresh returns', async () => {
+    writeSession({ accessToken: 'one', user });
+    let release!: (response: Response) => void;
+    const fetcher = vi.fn().mockImplementation((url: string) =>
+      url.includes('/refresh')
+        ? new Promise((resolve) => {
+            release = resolve;
+          })
+        : Promise.resolve(new Response(null, { status: 204 })),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    const pending = refreshSession();
+    await logout();
+    release(json({ accessToken: 'fresh', user }));
+    await expect(pending).rejects.toMatchObject({ status: 401 });
+    expect(getSession()).toBeNull();
   });
 
   it('scopes drafts and clears them at owner transitions', () => {

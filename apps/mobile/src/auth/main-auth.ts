@@ -6,8 +6,8 @@ import {
   nativeRedirectUri,
   nativeSocialRedirectUri,
 } from '@vetify/planner-shared/native-auth';
-import { serverUrls } from '../config';
-import { ApiError, readResponse } from '../services/api-error';
+import { ApiError } from '../services/api-error';
+import { revokeNativeCredential } from './native-logout';
 
 import { clearDrafts, getSession, writeSession, type AuthSession } from './session';
 
@@ -33,7 +33,14 @@ async function requestSession(
 ): Promise<AuthSession> {
   if (started !== generation) throw new ApiError(401, 'The account session changed.');
   const parsed = await requestNativeSession(action, body);
-  const session = { accessToken: parsed.data.accessToken, user: parsed.data.user };
+  const previous = getSession();
+  const session = {
+    accessToken: parsed.data.accessToken,
+    user: parsed.data.user,
+    emailVerification:
+      parsed.data.emailVerification ??
+      (previous?.user.id === parsed.data.user.id ? previous.emailVerification : undefined),
+  };
   await withCredentials(async () => {
     if (started !== generation) throw new ApiError(401, 'The account session changed.');
     await SecureStore.deleteItemAsync(legacyRefreshKey);
@@ -143,15 +150,7 @@ export async function logout() {
       await SecureStore.deleteItemAsync(rememberedRefreshKey);
       return token;
     });
-    if (refreshToken)
-      await readResponse(
-        await fetch(`${serverUrls().main}/auth/native/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-          signal: AbortSignal.timeout(10000),
-        }),
-      );
+    await revokeNativeCredential(refreshToken);
   } finally {
     await clearDrafts(ownerId);
   }

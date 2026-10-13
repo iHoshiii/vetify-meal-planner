@@ -1,7 +1,19 @@
 import { todayInTimeZone } from '@vetify/planner-shared/planner-date';
 import { clearPlanDrafts } from '../storage/plan-drafts';
-export type AuthUser = { id: string; name: string | null; email: string; role: string };
-export type AuthSession = { accessToken: string; user: AuthUser };
+import type { EmailDelivery } from './account-contract';
+export type AuthUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  provider?: string;
+  emailVerified?: boolean;
+};
+export type AuthSession = {
+  accessToken: string;
+  user: AuthUser;
+  emailVerification?: EmailDelivery;
+};
 let session: AuthSession | null = null;
 let timeZone = 'Asia/Manila';
 const listeners = new Set<() => void>();
